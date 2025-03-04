@@ -2,11 +2,12 @@ import tifffile
 import random
 import numpy as np
 import matplotlib.pyplot as plt
+
 import os
 import shutil
 import re
 import json
-
+from skimage.color import rgb2gray
 from scipy.ndimage import rotate, gaussian_filter
 from skimage.morphology import binary_dilation, diamond, skeletonize
 import pandas as pd
@@ -15,7 +16,7 @@ from tabulate import tabulate
 from losses import (dice_loss, bce_dice_loss, dual_dice_loss, dice_skeleton_loss)
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 import tensorflow as tf
 from tensorflow.keras.models import Model
@@ -77,11 +78,11 @@ from tensorflow.keras.utils import plot_model
 
 ## 📍 a. Data paths
 
-data_folder       = "/home/benedetti/Documents/projects/2060-microglia/data/training-data/experimental"
-qc_folder         = None
-inputs_name       = "microglia"
-masks_name        = "microglia-masks"
-models_path       = "/home/benedetti/Documents/projects/2060-microglia/µnet"
+data_folder       = "/home/khietdang/Documents/khiet/tiles/train"
+qc_folder         = "/home/khietdang/Documents/khiet/tiles/val"
+inputs_name       = "x"
+masks_name        = "y"
+models_path       = "/home/khietdang/Documents/khiet/tree-ring-analyzer/src/unet"
 working_directory = "/tmp/unet_working"
 model_name_prefix = "unet"
 reset_local_data  = True
@@ -176,10 +177,16 @@ def get_shape():
     _, l_files = get_data_pools(data_folder, [inputs_name], True)
     input_path = os.path.join(data_folder, inputs_name, list(l_files)[0])
     raw = tifffile.imread(input_path)
-    s = raw.shape
-    if len(s) == 2:
-        s = (s[0], s[1], 1)
-    return s
+
+    s1 = raw.shape
+    if len(s1) == 2:
+        s1 = (s1[0], s1[1], 1)
+    raw = rgb2gray(raw)
+    s2 = raw.shape
+    if len(s2) == 2:
+        s2 = (s2[0], s2[1], 1)
+    
+    return s1, s2
 
 def is_extension_correct(root_folder, folders):
     """
@@ -605,7 +612,8 @@ def visualize_augmentations(model_path, num_examples=6):
     Args:
         num_examples (int): The number of examples to visualize.
     """
-    dataset   = make_dataset("training", True).batch(1).take(num_examples)
+    # dataset   = make_dataset("training", True).batch(1).take(num_examples)
+    dataset = make_dataset("training", True).take(num_examples)
     grid_size = (2, num_examples)
     _, axes   = plt.subplots(*grid_size, figsize=(15, 6))
 
@@ -641,8 +649,14 @@ def visualize_augmentations(model_path, num_examples=6):
 
 def open_pair(input_path, mask_path, training, img_only):
     raw_img = tifffile.imread(input_path)
-    raw_img = np.expand_dims(raw_img, axis=-1)
+    # raw_img = rgb2gray(raw_img)
+    # raw_img = np.expand_dims(raw_img, axis=-1)
+    minv = np.min(raw_img, axis=(0, 1))[None, None, :]
+    maxv = np.max(raw_img, axis=(0, 1))[None, None, :]
+    raw_img = (raw_img - minv) / (maxv - minv)
+    
     raw_mask = tifffile.imread(mask_path)
+    raw_mask = rgb2gray(raw_mask)
     raw_mask = skeletonize(raw_mask)
     raw_mask = binary_dilation(raw_mask)
     raw_mask = raw_mask.astype(np.float32)
@@ -652,6 +666,7 @@ def open_pair(input_path, mask_path, training, img_only):
         raw_img, raw_mask = apply_data_augmentation(raw_img, raw_mask)
     image = tf.constant(raw_img, dtype=tf.float32)
     mask = tf.constant(raw_mask, dtype=tf.float32)
+
     if img_only:
         return image
     else:
@@ -670,17 +685,19 @@ def pairs_generator(src, training, img_only):
         i += 1
 
 def make_dataset(source, training=False, img_only=False):
-    shape = get_shape()
+    shape_img, shape_mask = get_shape()
     
-    output_signature=tf.TensorSpec(shape=shape, dtype=tf.float32, name=None)
+    output_signature=tf.TensorSpec(shape=shape_img, dtype=tf.float32, name=None)
+
     if not img_only:
-        output_signature = (output_signature, tf.TensorSpec(shape=shape, dtype=tf.float32, name=None))
+        output_signature = (output_signature, tf.TensorSpec(shape=shape_mask, dtype=tf.float32, name=None))
     
     ds = tf.data.Dataset.from_generator(
         pairs_generator,
         args=(source, training, img_only),
         output_signature=output_signature
     )
+
     return ds
 
 def test_ds_consumer():
@@ -838,7 +855,7 @@ def create_unet2d_model(input_shape):
 ## 📍 d. Model instanciator
 
 def instanciate_model():
-    input_shape = get_shape()
+    input_shape, _ = get_shape()
     model = create_unet2d_model(input_shape)
     model.compile(
         optimizer=Adam(learning_rate=learning_rate),
@@ -1038,28 +1055,35 @@ def plot_training_history(history, model_path):
 
 
 def main():
+    gpus = tf.config.experimental.list_physical_devices('GPU')
+    if gpus:
+        try:
+            tf.config.experimental.set_memory_growth(gpus[0], True)
+            tf.config.set_visible_devices(gpus[0], 'GPU')
+        except RuntimeError as e:
+            print(e)
 
     # 1. Running the sanity checks
-    data_sanity, results = sanity_check(data_folder)
-    qc_sanity = True
-    if qc_folder is not None:
-        qc_sanity, _ = sanity_check(qc_folder)
+    # data_sanity, results = sanity_check(data_folder)
+    # qc_sanity = True
+    # if qc_folder is not None:
+    #     qc_sanity, _ = sanity_check(qc_folder)
     
-    if not data_sanity:
-        if remove_wrong_data:
-            remove_dirty_data(data_folder, [inputs_name, masks_name], results)
-        else:
-            print(f"ABORT. 😱 Your {'data' if not data_sanity else 'QC data'} is not consistent. Use the content of the sanity check table above to fix all that and try again.")
-            return
-    else:
-        print("👍 Your training data looks alright!")
+    # if not data_sanity:
+    #     if remove_wrong_data:
+    #         remove_dirty_data(data_folder, [inputs_name, masks_name], results)
+    #     else:
+    #         print(f"ABORT. 😱 Your {'data' if not data_sanity else 'QC data'} is not consistent. Use the content of the sanity check table above to fix all that and try again.")
+    #         return
+    # else:
+    #     print("👍 Your training data looks alright!")
 
-    if qc_folder is None:
-        print("🚨 No QC data provided.")
-    elif not qc_sanity:
-        print("🚨 Your QC data is not consistent. Use the content of the sanity check table above to fix all that and try again.")
-    else:
-        print("👍 Your QC data looks alright!")
+    # if qc_folder is None:
+    #     print("🚨 No QC data provided.")
+    # elif not qc_sanity:
+    #     print("🚨 Your QC data is not consistent. Use the content of the sanity check table above to fix all that and try again.")
+    # else:
+    #     print("👍 Your QC data looks alright!")
     
     # 2. Migrate the data locally
     create_local_dirs(reset_local_data)
@@ -1097,7 +1121,6 @@ def main():
     else:
         print("   • No testing dataset provided.")
     
-    # 6. Training the model
     history = train_model(model, training_dataset, validation_dataset, model_path)
     plot_training_history(history, model_path)
 
