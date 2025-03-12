@@ -12,6 +12,7 @@ from scipy.ndimage import rotate, gaussian_filter
 from skimage.morphology import binary_dilation, diamond, skeletonize
 import pandas as pd
 from tabulate import tabulate
+import cv2
 
 from losses import (dice_loss, bce_dice_loss, dual_dice_loss, dice_skeleton_loss)
 
@@ -79,7 +80,7 @@ from tensorflow.keras.utils import plot_model
 ## 📍 a. Data paths
 
 data_folder       = "/home/khietdang/Documents/khiet/tiles/train"
-qc_folder         = "/home/khietdang/Documents/khiet/tiles/val"
+qc_folder         = "/home/khietdang/Documents/khiet/tiles/test"
 inputs_name       = "x"
 masks_name        = "y"
 models_path       = "/home/khietdang/Documents/khiet/tree-ring-analyzer/src/unet"
@@ -186,7 +187,7 @@ def get_shape():
     if len(s2) == 2:
         s2 = (s2[0], s2[1], 1)
     
-    return s1, s2
+    return s2, s2
 
 def is_extension_correct(root_folder, folders):
     """
@@ -649,11 +650,11 @@ def visualize_augmentations(model_path, num_examples=6):
 
 def open_pair(input_path, mask_path, training, img_only):
     raw_img = tifffile.imread(input_path)
-    # raw_img = rgb2gray(raw_img)
-    # raw_img = np.expand_dims(raw_img, axis=-1)
-    minv = np.min(raw_img, axis=(0, 1))[None, None, :]
-    maxv = np.max(raw_img, axis=(0, 1))[None, None, :]
-    raw_img = (raw_img - minv) / (maxv - minv)
+    raw_img = rgb2gray(raw_img)
+    # raw_img = cv2.cvtColor(raw_img, cv2.COLOR_BGR2LAB)
+    # raw_img = raw_img[:, :, 2]
+    raw_img = (raw_img - np.min(raw_img)) / (np.max(raw_img) - np.min(raw_img))
+    raw_img = np.expand_dims(raw_img, axis=-1)
     
     raw_mask = tifffile.imread(mask_path)
     raw_mask = rgb2gray(raw_mask)
@@ -1107,10 +1108,11 @@ def main():
     # 4. Creating the model
     model = instanciate_model()
     model.summary()
+    model.load_weights('src/unet/unet-V044/best.keras')
 
     # 5. Create the datasets
-    training_dataset   = make_dataset("training", True).repeat().batch(batch_size).take(batch_size)
-    validation_dataset = make_dataset("validation", False).repeat().batch(batch_size).take(batch_size)
+    training_dataset   = make_dataset("training", True).batch(batch_size).shuffle(batch_size)
+    validation_dataset = make_dataset("validation", False).batch(batch_size)
     print(f"   • Training dataset: {len(list(training_dataset))} ({training_dataset}).")
     print(f"   • Validation dataset: {len(list(validation_dataset))} ({validation_dataset}).")
     

@@ -1,5 +1,5 @@
 import tensorflow as tf
-from unet2d_training import create_unet2d_model, get_shape
+from unet2d_training import create_unet2d_model
 import tifffile
 import os
 import numpy as np

@@ -414,7 +414,7 @@ class Patch2D(object):
 
 if __name__ == "__main__":
     input_folder = '/home/khietdang/Documents/khiet/treeRing/input'
-    checkpoint = '/home/khietdang/Documents/khiet/tree-ring-analyzer/src/models/focalLoss_distanceMap.h5'
+    checkpoint = '/home/khietdang/Documents/khiet/tree-ring-analyzer/src/models/bigDistance.h5'
     output_folder = f'/home/khietdang/Documents/khiet/treeRing/predictions_{os.path.basename(checkpoint)[:-3]}'
     os.makedirs(output_folder, exist_ok=True)
     list_input = glob.glob(os.path.join(input_folder, '*.tif'))
