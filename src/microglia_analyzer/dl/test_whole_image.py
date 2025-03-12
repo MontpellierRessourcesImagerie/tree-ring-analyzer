@@ -6,8 +6,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 import copy
 import math
+from skimage.color import rgb2gray
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 def make_gradient_patch(patch_size, overlap, direction):
     """
@@ -344,9 +346,9 @@ class Patch2D(object):
 
 if __name__ == "__main__":
     input_folder = '/home/khietdang/Documents/khiet/treeRing/input'
-    checkpoint_path = 'src/unet/unet-V006/best.keras'
+    checkpoint_path = 'src/unet/unet-V041/best.keras'
     output_folder = '/home/khietdang/Documents/khiet/treeRing/predictions'
-    input_shape = (256, 256, 3)
+    input_shape = (256, 256, 1)
     patch_size = 256
     overlap = 128
     batch_size = 8
@@ -362,27 +364,11 @@ if __name__ == "__main__":
         tiles_manager = ImageTiler2D(patch_size, overlap, shape)
         tiles = tiles_manager.image_to_tiles(im_data)
         tiles = np.array(tiles)
+        tiles = rgb2gray(tiles)
         predictions = np.squeeze(model.predict(tiles, batch_size=batch_size))
 
         tiles_manager = ImageTiler2D(patch_size, overlap, shape[:2])
         probabilities = tiles_manager.tiles_to_image(predictions)
-        probabilities[probabilities < 0.5] = 0
-        probabilities[probabilities >= 0.5] = 1
-        tifffile.imwrite(os.path.join(output_folder, im_name), probabilities.astype(np.uint8))
-        # plt.figure(figsize=(15, 5))
-        # plt.subplot(1, 3, 1)
-        # plt.imshow(im_data)
-        # plt.subplot(1, 3, 2)
-        # plt.imshow(mask)
-        # plt.subplot(1, 3, 3)
-        # plt.imshow(predictions)
-        # plt.savefig(os.path.join(output_folder, im_name.replace('.tif', '.png')))
-                
 
-        
-
-
-    
-
-    
+        tifffile.imwrite(os.path.join(output_folder, im_name), probabilities)
 
