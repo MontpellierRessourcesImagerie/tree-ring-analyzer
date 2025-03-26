@@ -438,6 +438,7 @@ if __name__ == '__main__':
     checkpoint_ring_path = '/home/khietdang/Documents/khiet/tree-ring-analyzer/src/models/bigDistance.keras'
     checkpoint_pith_path = '/home/khietdang/Documents/khiet/tree-ring-analyzer/src/models/pith.h5'
     batch_size = 8
+    thickness = 2
     patch_size = 256
     overlap = patch_size - 196
 
@@ -503,6 +504,7 @@ if __name__ == '__main__':
         # Tracing
         ## Resize
         prediction_ring = cv2.resize(prediction_ring, (int(shape[1] / 10), int(shape[0] / 10)))
+        prediction_ring = prediction_ring ** 2
         height, width = prediction_ring.shape
         pith = cv2.resize(pith, (width, height))
 
@@ -563,13 +565,13 @@ if __name__ == '__main__':
         i = 0
         while i < len(results):
             image_i = np.zeros_like(prediction_ring, dtype=np.uint8)
-            cv2.polylines(image_i, results[i], True, 1, 1)
-            cv2.polylines(image_i, results[i + 1], True, 1, 1)
+            cv2.polylines(image_i, results[i], True, 1, thickness)
+            cv2.polylines(image_i, results[i + 1], True, 1, thickness)
             j = i + 2
             while j < len(results):
                 image_j = np.zeros_like(prediction_ring, dtype=np.uint8)
-                cv2.polylines(image_j, results[j], True, 1, 1)
-                cv2.polylines(image_j, results[j + 1], True, 1, 1)
+                cv2.polylines(image_j, results[j], True, 1, thickness)
+                cv2.polylines(image_j, results[j + 1], True, 1, thickness)
                 image_ij = np.bitwise_and(image_i, image_j)
                 sum_ij1 = np.sum(image_ij[:dark_point])
                 sum_ij2 = np.sum(image_ij[dark_point + 1:])
@@ -588,13 +590,13 @@ if __name__ == '__main__':
                         prediction_final[dark_point + 1:] = np.bitwise_or(prediction_final[dark_point + 1:], image_j[dark_point + 1:])
                         opposite_ring = np.stack([results[j + 1][:, :, 0][:, :, None], 
                                              2 * dark_point - results[j + 1][:, :, 1][:, :, None]], axis=-1)
-                        cv2.polylines(prediction_final, opposite_ring.astype(np.int32), True, 1, 1)
+                        cv2.polylines(prediction_final, opposite_ring.astype(np.int32), True, 1, thickness)
                     else:
                         prediction_final = np.bitwise_or(prediction_final, image_j)
                         prediction_final[dark_point + 1:] = np.bitwise_or(prediction_final[dark_point + 1:], image_i[dark_point + 1:])
                         opposite_ring = np.stack([results[i + 1][:, :, 0][:, :, None],
                                             2 * dark_point - results[i + 1][:, :, 1][:, :, None]], axis=-1)
-                        cv2.polylines(prediction_final, opposite_ring.astype(np.int32), True, 1, 1)
+                        cv2.polylines(prediction_final, opposite_ring.astype(np.int32), True, 1, thickness)
                     results.pop(j)
                     results.pop(j)
                 elif sum_ij1 == 0 and sum_ij2 >= 1:
@@ -604,13 +606,13 @@ if __name__ == '__main__':
                         prediction_final[:dark_point] = np.bitwise_or(prediction_final[:dark_point], image_j[:dark_point])
                         opposite_ring = np.stack([results[j][:, :, 0][:, :, None], 
                                                   2 * dark_point - results[j][:, :, 1][:, :, None]], axis=-1)
-                        cv2.polylines(prediction_final, opposite_ring.astype(np.int32), True, 1, 1)
+                        cv2.polylines(prediction_final, opposite_ring.astype(np.int32), True, 1, thickness)
                     else:
                         prediction_final = np.bitwise_or(prediction_final, image_j)
                         prediction_final[:dark_point] = np.bitwise_or(prediction_final[:dark_point], image_i[:dark_point])
                         opposite_ring = np.stack([results[i][:, :, 0][:, :, None], 
                                              2 * dark_point - results[i][:, :, 1][:, :, None]], axis=-1)
-                        cv2.polylines(prediction_final, opposite_ring.astype(np.int32), True, 1, 1)
+                        cv2.polylines(prediction_final, opposite_ring.astype(np.int32), True, 1, thickness)
                     
                     results.pop(j)
                     results.pop(j)
@@ -624,10 +626,10 @@ if __name__ == '__main__':
         ## Draw the pith ring
         contours, _ = cv2.findContours(pith.astype(np.uint8), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
         longest_contour = np.argmax(np.array([len(contour) for contour in contours]))
-        cv2.drawContours(prediction_final, contours, longest_contour, 1, 1)
+        cv2.drawContours(prediction_final, contours, longest_contour, 1, thickness)
 
         ## Resize and draw over the original image
-        prediction_final = cv2.resize(prediction_final, (shape[1], shape[0]))
+        prediction_final = cv2.resize(prediction_final, (shape[1], shape[0]), cv2.INTER_CUBIC)
         image[prediction_final == 1] = 0
 
         # Save result
