@@ -504,7 +504,6 @@ if __name__ == '__main__':
         # Tracing
         ## Resize
         prediction_ring = cv2.resize(prediction_ring, (int(shape[1] / 10), int(shape[0] / 10)))
-        prediction_ring = prediction_ring ** 2
         height, width = prediction_ring.shape
         pith = cv2.resize(pith, (width, height))
 
