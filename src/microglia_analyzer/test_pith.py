@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import cv2
 from skimage.color import rgb2gray
 import glob
+import copy
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
@@ -79,29 +80,34 @@ def build_unet_model():
    return unet_model
 
 if __name__ == "__main__":
-    input_folder = '/home/khietdang/Documents/khiet/treeRing/input'
-    checkpoint = '/home/khietdang/Documents/khiet/tree-ring-analyzer/src/models/pith.h5'
-    output_folder = f'/home/khietdang/Documents/khiet/treeRing/predictions_{os.path.basename(checkpoint)[:-3]}'
-    os.makedirs(output_folder, exist_ok=True)
-    list_input = glob.glob(os.path.join(input_folder, '*.tif'))
-    crop_size = 1024
-    batch_size = 8
-    model = build_unet_model()
-    model.load_weights(checkpoint)
+   input_folder = '/home/khietdang/Documents/khiet/treeRing/bad'
+   checkpoint = '/home/khietdang/Documents/khiet/tree-ring-analyzer/src/models/pith.h5'
+   output_folder = f'/home/khietdang/Documents/khiet/treeRing/bad_{os.path.basename(checkpoint)[:-3]}'
+   os.makedirs(output_folder, exist_ok=True)
+   list_input = glob.glob(os.path.join(input_folder, '*.tif'))
+   crop_size = 1024
+   batch_size = 8
+   model = build_unet_model()
+   model.load_weights(checkpoint)
 
-    for im_name in list_input:
-        im_data = tifffile.imread(im_name)
-        pred_otherrings = tifffile.imread(im_name.replace('input', 'predictions_segmentation_from_bigDistance'))
+   for im_name in list_input:
+      im_data = tifffile.imread(im_name)
+      pred_otherrings = tifffile.imread(im_name.replace('input', 'predictions_segmentation_from_bigDistance'))
 
-        one_indices = np.where(pred_otherrings == 255)
-        center = int(np.mean(one_indices[0])), int(np.mean(one_indices[1]))
-        
-        crop_img = im_data[center[0] - int(crop_size / 2):center[0] + int(crop_size / 2),
-                           center[1] - int(crop_size / 2):center[1] + int(crop_size / 2)]
+      one_indices = np.where(pred_otherrings == 255)
+      center = int(np.mean(one_indices[0])), int(np.mean(one_indices[1]))
+      
+      crop_img = im_data[center[0] - int(crop_size / 2):center[0] + int(crop_size / 2),
+                        center[1] - int(crop_size / 2):center[1] + int(crop_size / 2)]
 
-        crop_img = cv2.resize(crop_img, (256, 256))[None, :, :, :]
-        crop_img = crop_img / 255
-        pred_pith = model.predict(crop_img)
+      crop_img = cv2.resize(crop_img, (256, 256))[None, :, :, :]
+      crop_img = crop_img / 255
+      pred_pith = model.predict(crop_img)
 
-        tifffile.imwrite(os.path.join(output_folder, os.path.basename(im_name)[:-4] + f'_{center[0]}_{center[1]}.tif'), pred_pith[0])
+      pred_final = np.zeros((im_data.shape[0], im_data.shape[1]))
+      pred_pith = cv2.resize(pred_pith[0], (crop_size, crop_size))
+      pred_final[center[0] - int(crop_size / 2):center[0] + int(crop_size / 2),
+                        center[1] - int(crop_size / 2):center[1] + int(crop_size / 2)] = copy.deepcopy(pred_pith)
+
+      tifffile.imwrite(os.path.join(output_folder, os.path.basename(im_name)), pred_final)
 

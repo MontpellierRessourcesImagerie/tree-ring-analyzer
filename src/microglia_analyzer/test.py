@@ -414,7 +414,7 @@ class Patch2D(object):
 
 if __name__ == "__main__":
     input_folder = '/home/khietdang/Documents/khiet/treeRing/input'
-    checkpoint = '/home/khietdang/Documents/khiet/tree-ring-analyzer/src/models/bigDistance.h5'
+    checkpoint = '/home/khietdang/Documents/khiet/tree-ring-analyzer/src/models/bigDistanceOtherRings2.h5'
     output_folder = f'/home/khietdang/Documents/khiet/treeRing/predictions_{os.path.basename(checkpoint)[:-3]}'
     os.makedirs(output_folder, exist_ok=True)
     list_input = glob.glob(os.path.join(input_folder, '*.tif'))
@@ -426,7 +426,6 @@ if __name__ == "__main__":
 
     for im_name in list_input:
         im_data = tifffile.imread(im_name)
-        mask = tifffile.imread(im_name.replace('input', 'masks'))
         
         shape = im_data.shape
         tiles_manager = ImageTiler2D(patch_size, overlap, shape)

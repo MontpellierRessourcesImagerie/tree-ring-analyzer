@@ -3,7 +3,7 @@
  */
 
 THRESHOLD = 0.0840;
-SIZE = 900;
+SIZE = 1600;
 CLOSING = 64;
 
 

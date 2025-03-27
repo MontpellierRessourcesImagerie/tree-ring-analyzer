@@ -84,3 +84,8 @@ venv/
 **/_version.py
 
 src/microglia_analyzer/models/
+
+src/models
+src/results
+src/history
+*.png
