@@ -1,4 +1,5 @@
 from brightest_path_lib.algorithm import AStarSearch
+from brightest_path_lib.heuristic import Heuristic
 import copy
 import cv2
 import glob
@@ -415,26 +416,53 @@ class Patch2D(object):
             [self.lr_corner[0], self.lr_corner[1]],
             [self.lr_corner[0], self.ul_corner[1]]
         ])
+    
+class CustomHeuristicFunction(Heuristic):
+    def __init__(self, scale, center, radius):
+        if scale is None:
+            raise TypeError
+        if len(scale) == 0:
+            raise ValueError
 
-def plot_half_ring(image, peak1, peak2, dark_point, light_point):
+        self.scale_x = scale[0]
+        self.scale_y = scale[1]
+        self.center = center
+        self.radius = radius
+
+    def estimate_cost_to_goal(self, current_point, goal_point):
+        if current_point is None or goal_point is None:
+            raise TypeError
+        if (len(current_point) == 0 or len(goal_point) == 0) or (len(current_point) != len(goal_point)):
+            raise ValueError
+
+        current_x, current_y = current_point[1], current_point[0]
+        goal_x, goal_y = goal_point[1], goal_point[0]
+        
+        x_diff = (goal_x - current_x) * self.scale_x
+        y_diff = (goal_y - current_y) * self.scale_y
+
+        diff = np.abs(np.sqrt(np.sum((self.center - current_point) ** 2)) - self.radius)
+        
+        return math.sqrt((x_diff * x_diff) + (y_diff * y_diff)) + diff ** 2
+
+def plot_half_ring(image, peak1, peak2, light_point, center):
     start_point = np.array([light_point, peak1])
     goal_point = np.array([light_point, peak2])
+    radius = (np.sqrt(np.sum((start_point - center) ** 2)) + np.sqrt(np.sum((start_point - center) ** 2))) / 2
     search_algorithm = AStarSearch(image, start_point=start_point, goal_point=goal_point)
+    search_algorithm.heuristic_function = CustomHeuristicFunction(scale=(1.0, 1.0), center=center, radius=radius)
     brightest_path = search_algorithm.search()
 
     result = np.array(search_algorithm.result)[:, 1]
     brightest_path = np.array(search_algorithm.result)[:, 0]
-
-    result = np.append(start_point[1], np.append(result, goal_point[1]))
-    brightest_path = np.append(dark_point, np.append(brightest_path, dark_point))
 
     cor = np.stack([result[:, None], brightest_path[:, None]], axis=-1)
     return cor
 
 if __name__ == '__main__':
     # Parameters
-    input_folder = '/home/khietdang/Documents/khiet/treeRing/bad'
-    # input_folder = '/home/khietdang/Documents/khiet/treeRing/input/12 E 1 b_8µm_x50.tif'
+    input_folder = '/home/khietdang/Documents/khiet/treeRing/input'
+    # input_folder = '/home/khietdang/Documents/khiet/treeRing/input_transfer/17(11)_x50_8 µm.tif'
     output_folder = '/home/khietdang/Documents/khiet/treeRing/output'
     checkpoint_ring_path = '/home/khietdang/Documents/khiet/tree-ring-analyzer/src/models/bigDistance.keras'
     checkpoint_pith_path = '/home/khietdang/Documents/khiet/tree-ring-analyzer/src/models/pith.h5'
@@ -511,21 +539,16 @@ if __name__ == '__main__':
         ## Center identification from pith
         one_indice = np.where(pith == 1)
         center = int(np.mean(one_indice[0])), int(np.mean(one_indice[1]))
+        dark_point = center[0]
 
         ## Delete pith area from ring prediction
         pith_dilated = binary_dilation(pith, iterations=int(0.005 * width))
         prediction_ring = prediction_ring * (1 - pith_dilated)
 
-        ## Create dark line
-        min_value = np.min(prediction_ring)
-        dark_point = center[0]
-        prediction_ring[dark_point, :] = copy.deepcopy(min_value)
-
         ## Find start and goal points
         light_part = np.mean(prediction_ring[dark_point - 10:dark_point + 10, :], axis=0)
         ret = threshold_otsu(light_part)
         peaks1, _ = find_peaks(light_part[:center[1]], height=ret, distance=0.05 * width)
-        peaks1 = peaks1[::-1]
         peaks2, _ = find_peaks(light_part[center[1]:], height=ret, distance=0.05 * width)
         peaks2 = peaks2 + center[1]
 
@@ -540,43 +563,51 @@ if __name__ == '__main__':
         num_pair = min(len(peaks1), len(peaks2))
         data = []
         remains = list(np.arange(0, len(peaks1)))
+        image_upper = np.zeros_like(prediction_ring)
+        image_upper[:dark_point] = 1
+        image_upper *= prediction_ring
+        image_lower = np.zeros_like(prediction_ring)
+        image_lower[dark_point:] = 1
+        image_lower *= prediction_ring
         for i in range(0, num_pair, 1):
             difference = np.abs(peaks2_center[i] - peaks1_center)
             sort = np.argsort(difference)
             j = sort[np.isin(sort, remains)]
             if len(j):
                 j = j[0]
-                data.append((prediction_ring, peaks1[j], peaks2[i], dark_point, dark_point - 1))
-                data.append((prediction_ring, peaks1[j], peaks2[i], dark_point, dark_point + 1))
+                data.append((image_upper, peaks1[j], peaks2[i], dark_point - 1, np.array(center)))
+                data.append((image_lower, peaks1[j], peaks2[i], dark_point, np.array(center)))
                 remains.remove(j)
 
         for j in remains:
             if 0 <= 2 * center[1] - peaks1[j] < width:
-                data.append((prediction_ring, 2 * center[1] - peaks1[j], peaks1[j], dark_point, dark_point - 1))
-                data.append((prediction_ring, 2 * center[1] - peaks1[j], peaks1[j], dark_point, dark_point + 1))
+                data.append((image_upper, 2 * center[1] - peaks1[j], peaks1[j], dark_point - 1, np.array(center)))
+                data.append((image_lower, 2 * center[1] - peaks1[j], peaks1[j], dark_point, np.array(center)))
 
         ## Tracing half ring for each pair
         with Pool(multiprocessing.cpu_count()) as pool:
             results = pool.starmap(plot_half_ring, data)
 
+        ## Draw each ring
+        draw_image = []
+        for i in range(0, len(results), 2):
+            _image = np.zeros_like(prediction_ring, dtype=np.uint8)
+            cv2.polylines(_image, results[i], True, 1, thickness)
+            cv2.polylines(_image, results[i + 1], True, 1, thickness)
+            draw_image.append(_image)
+
         ## Check each half ring and draw
         prediction_final = np.zeros_like(prediction_ring, dtype=np.uint8)
         add = False
         i = 0
-        data2 = []
         while i < len(results):
-            image_i = np.zeros_like(prediction_ring, dtype=np.uint8)
-            cv2.polylines(image_i, results[i], True, 1, thickness)
-            cv2.polylines(image_i, results[i + 1], True, 1, thickness)
+            image_i = draw_image[int(i / 2)]
             j = i + 2
             while j < len(results):
-                image_j = np.zeros_like(prediction_ring, dtype=np.uint8)
-                cv2.polylines(image_j, results[j], True, 1, thickness)
-                cv2.polylines(image_j, results[j + 1], True, 1, thickness)
+                image_j = draw_image[int(j / 2)]
                 image_ij = np.bitwise_and(image_i, image_j)
-                sum_ij1 = np.sum(image_ij[:dark_point])
-                sum_ij2 = np.sum(image_ij[dark_point + 1:])
-                if sum_ij1 >= 1 and sum_ij2 >= 1:
+                sum_ij = np.sum(image_ij)
+                if sum_ij >= 1:
                     add = True
                     if len(results[i]) < len(results[j]):
                         prediction_final = np.bitwise_or(prediction_final, image_i)
@@ -584,48 +615,19 @@ if __name__ == '__main__':
                         prediction_final = np.bitwise_or(prediction_final, image_j)
                     results.pop(j)
                     results.pop(j)
-                elif sum_ij1 >= 1 and sum_ij2 == 0:
-                    add = True
-                    if len(results[i]) < len(results[j]):
-                        prediction_final = np.bitwise_or(prediction_final, image_i)
-                        prediction_final[dark_point + 1:] = np.bitwise_or(prediction_final[dark_point + 1:], image_j[dark_point + 1:])
-                        data2.append(data[j + 1])
-                    else:
-                        prediction_final = np.bitwise_or(prediction_final, image_j)
-                        prediction_final[dark_point + 1:] = np.bitwise_or(prediction_final[dark_point + 1:], image_i[dark_point + 1:])
-                        data2.append(data[i + 1])
-                    results.pop(j)
-                    results.pop(j)
-                elif sum_ij1 == 0 and sum_ij2 >= 1:
-                    add = True
-                    if len(results[i]) < len(results[j]):
-                        prediction_final = np.bitwise_or(prediction_final, image_i)
-                        prediction_final[:dark_point] = np.bitwise_or(prediction_final[:dark_point], image_j[:dark_point])
-                        data2.append(data[j])
-                    else:
-                        prediction_final = np.bitwise_or(prediction_final, image_j)
-                        prediction_final[:dark_point] = np.bitwise_or(prediction_final[:dark_point], image_i[:dark_point])
-                        data2.append(data[i])
-                    results.pop(j)
-                    results.pop(j)
-                j += 2
+                    draw_image.pop(int(j / 2))
+                else:
+                    j += 2
             if not add:
                 prediction_final = np.bitwise_or(prediction_final, image_i)
 
             add = False
             i += 2
-            
-        ## Second tracing
-        if len(data2):
-            prediction_ring2 = prediction_ring * (1 - binary_dilation(prediction_final, iterations=int(0.005 * width)))
-            for i in range(len(data2)):
-                cor = plot_half_ring(prediction_ring2, data2[i][1], data2[i][2], data2[i][3], data2[i][4])
-                cv2.polylines(prediction_final, cor, True, 1, thickness)
 
         ## Draw the pith ring
         contours, _ = cv2.findContours(pith.astype(np.uint8), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-        longest_contour = np.argmax(np.array([len(contour) for contour in contours]))
-        cv2.drawContours(prediction_final, contours, longest_contour, 1, thickness)
+        chosen_contour = np.argmax(cv2.pointPolygonTest(contour, [center[1], center[0]]) for contour in contours)
+        cv2.drawContours(prediction_final, contours, chosen_contour, 1, thickness)
 
         ## Resize and draw over the original image
         prediction_final = cv2.resize(prediction_final, (shape[1], shape[0]), cv2.INTER_CUBIC)
