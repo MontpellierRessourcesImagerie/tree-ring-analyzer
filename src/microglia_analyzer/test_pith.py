@@ -8,6 +8,7 @@ import cv2
 from skimage.color import rgb2gray
 import glob
 import copy
+from skimage.filters import threshold_otsu
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
@@ -80,23 +81,26 @@ def build_unet_model():
    return unet_model
 
 if __name__ == "__main__":
-   input_folder = '/home/khietdang/Documents/khiet/treeRing/bad'
+   input_folder = '/home/khietdang/Documents/khiet/treeRing/transfer/input_transfer'
+   prediction_folder = '/home/khietdang/Documents/khiet/treeRing/transfer/predictions_bigDistance'
    checkpoint = '/home/khietdang/Documents/khiet/tree-ring-analyzer/src/models/pith.h5'
-   output_folder = f'/home/khietdang/Documents/khiet/treeRing/bad_{os.path.basename(checkpoint)[:-3]}'
+   output_folder = f'/home/khietdang/Documents/khiet/treeRing/transfer/predictions_{os.path.basename(checkpoint)[:-3]}'
    os.makedirs(output_folder, exist_ok=True)
    list_input = glob.glob(os.path.join(input_folder, '*.tif'))
-   crop_size = 1024
    batch_size = 8
    model = build_unet_model()
    model.load_weights(checkpoint)
 
    for im_name in list_input:
       im_data = tifffile.imread(im_name)
-      pred_otherrings = tifffile.imread(im_name.replace('input', 'predictions_segmentation_from_bigDistance'))
+      prediction_ring = tifffile.imread(os.path.join(prediction_folder, os.path.basename(im_name)))
+      shape = im_data.shape[0], im_data.shape[1]
 
-      one_indices = np.where(pred_otherrings == 255)
-      center = int(np.mean(one_indices[0])), int(np.mean(one_indices[1]))
+      ret = threshold_otsu(prediction_ring)
+      ring_indices = np.where(prediction_ring > ret)
+      center = int(np.mean(ring_indices[0])), int(np.mean(ring_indices[1]))
       
+      crop_size = int(0.1 * max(shape[1], shape[0])) * 2
       crop_img = im_data[center[0] - int(crop_size / 2):center[0] + int(crop_size / 2),
                         center[1] - int(crop_size / 2):center[1] + int(crop_size / 2)]
 
