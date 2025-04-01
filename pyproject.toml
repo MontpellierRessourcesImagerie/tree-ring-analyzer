@@ -1,16 +1,17 @@
 [project]
-name = "microglia-analyzer"
+name = "tree-ring-analyzer"
 dynamic = ["version"]
-description = "A Napari plugin allowing to detect and segment microglia on fluorescent images."
+description = "A package that allows to segment tree rings."
 readme = "README.md"
 license = {file = "LICENSE"}
 authors = [
-  {name = "Clément H. BENEDETTI"},
-  {email = "clement.benedetti@mri.cnrs.fr"},
+
+  {name = "Thi-Thu-Khiet DANG", email = "dangthithukhiet7988@gmail.com"},
+   {name = "Clément H. BENEDETTI", email = "clement.benedetti@mri.cnrs.fr"},
+    {name = "Volker Baecker", email = "volker.baecker@mri.cnrs.fr"}
 ]
 classifiers = [
     "Development Status :: 2 - Pre-Alpha",
-    "Framework :: napari",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
@@ -26,16 +27,10 @@ classifiers = [
 requires-python = ">=3.9"
 dependencies = [
     "numpy",
-    "qtpy",
     "scikit-image",
     "opencv-python-headless",
-    "pint",
     "tifffile",
-    "torch",
     "tensorflow==2.17.0",
-    "skan",
-    "ultralytics",
-    "yolov5"
 ]
 
 # Required for documentation: tabs, sphinx_sphinx, myst_parser, sphinx_rtd_theme
@@ -45,31 +40,19 @@ testing = [
     "tox",
     "pytest",
     "pytest-cov",
-    "pytest-qt",
-    "napari",
-    "pyqt5",
     "numpy",
-    "qtpy",
     "scikit-image",
     "opencv-python-headless",
     "pint",
     "tifffile",
-    "torch",
     "tensorflow==2.17.0",
-    "skan",
-    "sphinx_rtd_theme",
-    "myst_parser",
-    "sphinx_tabs"
 ]
 
-[project.entry-points."napari.manifest"]
-microglia-analyzer = "microglia_analyzer:napari.yaml"
-
 [project.urls]
-"Bug Tracker" = "https://github.com/MontpellierRessourcesImagerie/microglia-analyzer/issues"
-"Documentation" = "https://github.com/MontpellierRessourcesImagerie/microglia-analyzer#README.md"
-"Source Code" = "https://github.com/MontpellierRessourcesImagerie/microglia-analyzer"
-"User Support" = "https://github.com/MontpellierRessourcesImagerie/microglia-analyzer/issues"
+"Bug Tracker" = "https://github.com/MontpellierRessourcesImagerie/tree-ring-analyzer/issues"
+"Documentation" = "https://github.com/MontpellierRessourcesImagerie/tree-ring-analyzer#README.md"
+"Source Code" = "https://github.com/MontpellierRessourcesImagerie/tree-ring-analyzer"
+"User Support" = "https://github.com/MontpellierRessourcesImagerie/tree-ring-analyzer/issues"
 
 [build-system]
 requires = ["setuptools>=42.0.0", "wheel"]
@@ -86,7 +69,7 @@ where = ["src"]
 
 
 [tool.setuptools.dynamic]
-version = {attr = "microglia_analyzer.__init__.__version__"}
+version = {attr = "tree_ring_analyzer.__init__.__version__"}
 
 [tool.black]
 line-length = 79
@@ -135,5 +118,5 @@ exclude = [
     "*_vendor*",
 ]
 
-target-version = "py38"
+target-version = "py39"
 fix = true

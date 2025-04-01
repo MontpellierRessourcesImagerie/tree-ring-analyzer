@@ -1,0 +1,25 @@
+name: microglia-analyzer
+display_name: Microglia Analyzer
+# use 'hidden' to remove plugin from napari hub search results
+visibility: public
+# see https://napari.org/stable/plugins/manifest.html for valid categories
+categories: ["Annotation", "Segmentation", "Acquisition"]
+contributions:
+  commands:
+    - id: microglia-analyzer.microglia_analyzer
+      python_name: microglia_analyzer._widget:MicrogliaAnalyzerWidget
+      title: Microglia Analyzer
+    - id: microglia-analyzer.annotations_helper
+      python_name: microglia_analyzer._widget_annotations_helper:AnnotationsWidget
+      title: Annotations Helper
+    - id: microglia-analyzer.tiles_creator
+      python_name: microglia_analyzer._widget_tiles:TilesCreatorWidget
+      title: Tiles Creator
+  widgets:
+    - command: microglia-analyzer.tiles_creator
+      display_name: Tiles Creator
+    - command: microglia-analyzer.annotations_helper
+      display_name: Annotations Helper
+    - command: microglia-analyzer.microglia_analyzer
+      display_name: Microglia Analyzer
+    

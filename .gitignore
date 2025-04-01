@@ -85,7 +85,6 @@ venv/
 
 src/microglia_analyzer/models/
 
-src/models
-src/results
-src/history
+models
+history
 *.png
