@@ -15,6 +15,7 @@ from scipy.ndimage import binary_dilation, median_filter
 from skimage.filters import threshold_otsu, threshold_multiotsu
 import time
 import math
+from skimage.exposure import equalize_adapthist
 
 class CustomHeuristicFunction(Heuristic):
     def __init__(self, center, radius):
@@ -102,19 +103,18 @@ def plot_half_ring(image, peak1, peak2, light_point, center):
 
 if __name__ == '__main__':
     t0 = time.time()
-    thickness = 2
+    thickness = 1
     folder_name = '/home/khietdang/Documents/khiet/treeRing/predictions_bigDistance'
     pith_name = '/home/khietdang/Documents/khiet/treeRing/predictions_pith'
     input_name = '/home/khietdang/Documents/khiet/treeRing/input'
     # image_list = glob.glob(f'/home/khietdang/Documents/khiet/treeRing/{folder_name}/*.tif')
-    image_list = [os.path.join(folder_name, '12 t_8µm_x50.tif')]
+    image_list = [os.path.join(folder_name, '8 E 4 t_8µm_x50.tif')]
     for image_path in image_list:
         print(image_path)
         image = tifffile.imread(image_path)
         height_ori, width_ori = image.shape
         image = cv2.resize(image, (int(image.shape[1] / 10), int(image.shape[0] / 10)))
         height, width = image.shape
-        # image = median_filter(image, (3, 3))
 
         pith_whole = tifffile.imread(os.path.join(pith_name, os.path.basename(image_path)))
         pith_whole[pith_whole >= 0.5] = 1
@@ -128,13 +128,12 @@ if __name__ == '__main__':
         image = image * (1 - pith_dilated)
 
         dark_point = center[0]
-
         # light_part = create_light_part(image, dark_point, center[1])
         light_part = np.mean(image[dark_point - 10:dark_point + 10, :], axis=0)
         # plt.plot(light_part)
         # plt.show()
         # raise ValueError
-        ret = threshold_otsu(light_part) * 0.5
+        ret = threshold_otsu(light_part)
         peaks1, _ = find_peaks(light_part[:center[1]], height=ret, distance=0.05 * width)
         peaks1 = peaks1[::-1]
         peaks1 = peaks1[peaks1 > 0.05 * width]
@@ -164,7 +163,7 @@ if __name__ == '__main__':
         image_lower = image_lower * image
         for k in range(0, num_pair, 1):
             j, i = np.where(diff_pp == np.min(diff_pp))
-            if len(j) >= len(peaks1):
+            if len(j) >= len(peaks1) * len(peaks2):
                 break
             j = j[0]
             i = i[0]
@@ -174,26 +173,25 @@ if __name__ == '__main__':
             diff_pp[j, :] = copy.deepcopy(max_value)
             diff_pp[:, i] = copy.deepcopy(max_value)
 
-        # for j in remains:
-        #     if 0 <= 2 * center[1] - peaks1[j] < width:
-        #         data.append((image_upper, 2 * center[1] - peaks1[j], peaks1[j], dark_point - 1, np.array(center)))
-        #         data.append((image_lower, 2 * center[1] - peaks1[j], peaks1[j], dark_point, np.array(center)))
+        for j in remains:
+            if 0.05 * width <= 2 * center[1] - peaks1[j] < 0.95 * width:
+                data.append((image_upper, 2 * center[1] - peaks1[j], peaks1[j], dark_point - 1, np.array(center)))
+                data.append((image_lower, 2 * center[1] - peaks1[j], peaks1[j], dark_point, np.array(center)))
 
         with Pool(1) as pool:
         # with Pool(multiprocessing.cpu_count()) as pool:
             results = pool.starmap(plot_half_ring, data)
         
-        image_white = np.zeros((height, width), dtype=np.uint8)
+        image_white = np.zeros((height_ori, width_ori), dtype=np.uint8)
         contours, _ = cv2.findContours(pith_whole.astype(np.uint8), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
         chosen_contour = np.argmax([cv2.pointPolygonTest(contour, [center[1], center[0]], True) for contour in contours])
-        cv2.drawContours(image_white, contours, chosen_contour, 1, thickness)
+        cv2.drawContours(image_white, [np.array(contours[chosen_contour]) * 10], 0, 1, thickness)
 
         length_results_sorted = np.argsort([len(results[i]) + len(results[i + 1]) for i in range(0, len(results), 2)])
         for i in range(0, len(length_results_sorted)):
-            _image = np.zeros((height, width), dtype=np.uint8)
+            _image = np.zeros((height_ori, width_ori), dtype=np.uint8)
             j = length_results_sorted[i]
-            cv2.polylines(_image, results[2 * j], True, 1, thickness)
-            cv2.polylines(_image, results[2 * j + 1], True, 1, thickness)
+            cv2.drawContours(_image, [np.append(results[2 * j], results[2 * j + 1][::-1], axis=0) * 10], 0, 1, thickness)
             if np.sum(np.bitwise_and(_image, image_white)) == 0:
                 image_white = np.bitwise_or(image_white, _image)
 

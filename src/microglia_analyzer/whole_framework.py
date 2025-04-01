@@ -9,7 +9,7 @@ from multiprocessing import Pool
 import numpy as np
 import os
 from skimage.morphology import skeletonize
-from scipy.ndimage import binary_dilation
+from scipy.ndimage import binary_dilation, median_filter
 from scipy.signal import find_peaks
 from skimage.filters import threshold_otsu
 import tensorflow as tf
@@ -461,13 +461,13 @@ def plot_half_ring(image, peak1, peak2, light_point, center):
 
 if __name__ == '__main__':
     # Parameters
-    input_folder = '/home/khietdang/Documents/khiet/treeRing/input'
-    # input_folder = '/home/khietdang/Documents/khiet/treeRing/input_transfer/17(11)_x50_8 µm.tif'
-    output_folder = '/home/khietdang/Documents/khiet/treeRing/output'
+    input_folder = '/home/khietdang/Documents/khiet/treeRing/transfer/input_transfer'
+    # input_folder = '/home/khietdang/Documents/khiet/treeRing/input/8 E 4 t_8µm_x50.tif'
+    output_folder = '/home/khietdang/Documents/khiet/treeRing/transfer/output_transfer'
     checkpoint_ring_path = '/home/khietdang/Documents/khiet/tree-ring-analyzer/src/models/bigDistance.keras'
     checkpoint_pith_path = '/home/khietdang/Documents/khiet/tree-ring-analyzer/src/models/pith.h5'
     batch_size = 8
-    thickness = 2
+    thickness = 1
     patch_size = 256
     overlap = patch_size - 196
 
@@ -533,6 +533,7 @@ if __name__ == '__main__':
         # Tracing
         ## Resize
         prediction_ring = cv2.resize(prediction_ring, (int(shape[1] / 10), int(shape[0] / 10)))
+        # prediction_ring = median_filter(prediction_ring, (3, 3))
         height, width = prediction_ring.shape
         pith = cv2.resize(pith, (width, height))
 
@@ -547,7 +548,7 @@ if __name__ == '__main__':
 
         ## Find start and goal points
         light_part = np.mean(prediction_ring[dark_point - 10:dark_point + 10, :], axis=0)
-        ret = threshold_otsu(light_part) * 0.5
+        ret = threshold_otsu(light_part)
         peaks1, _ = find_peaks(light_part[:center[1]], height=ret, distance=0.05 * width)
         peaks1 = peaks1[::-1]
         peaks1 = peaks1[peaks1 > 0.05 * width]
@@ -578,7 +579,7 @@ if __name__ == '__main__':
         image_lower = image_lower * prediction_ring
         for k in range(0, num_pair, 1):
             j, i = np.where(diff_pp == np.min(diff_pp))
-            if len(j) >= len(peaks1):
+            if len(j) >= len(peaks1) * len(peaks2):
                 break
             j = j[0]
             i = i[0]
@@ -588,29 +589,31 @@ if __name__ == '__main__':
             diff_pp[j, :] = copy.deepcopy(max_value)
             diff_pp[:, i] = copy.deepcopy(max_value)
 
+        for j in remains:
+            if 0.05 * width <= 2 * center[1] - peaks1[j] < 0.95 * width:
+                data.append((image_upper, 2 * center[1] - peaks1[j], peaks1[j], dark_point - 1, np.array(center)))
+                data.append((image_lower, 2 * center[1] - peaks1[j], peaks1[j], dark_point, np.array(center)))
+
         ## Tracing half ring for each pair
         with Pool(multiprocessing.cpu_count()) as pool:
             results = pool.starmap(plot_half_ring, data)
 
-        ## Draw pith ring
-        prediction_final = np.zeros_like(prediction_ring, dtype=np.uint8)
+        ## Draw rings
+        image_white = np.zeros((shape[0], shape[1]), dtype=np.uint8)
         contours, _ = cv2.findContours(pith.astype(np.uint8), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
         chosen_contour = np.argmax([cv2.pointPolygonTest(contour, [center[1], center[0]], True) for contour in contours])
-        cv2.drawContours(prediction_final, contours, chosen_contour, 1, thickness)
+        cv2.drawContours(image_white, [np.array(contours[chosen_contour]) * 10], 0, 1, thickness)
 
-        ## Draw other rings
         length_results_sorted = np.argsort([len(results[i]) + len(results[i + 1]) for i in range(0, len(results), 2)])
         for i in range(0, len(length_results_sorted)):
-            _image = np.zeros((height, width), dtype=np.uint8)
+            _image = np.zeros((shape[0], shape[1]), dtype=np.uint8)
             j = length_results_sorted[i]
-            cv2.polylines(_image, results[2 * j], True, 1, thickness)
-            cv2.polylines(_image, results[2 * j + 1], True, 1, thickness)
-            if np.sum(np.bitwise_and(_image, prediction_final)) == 0:
-                prediction_final = np.bitwise_or(prediction_final, _image)
-        
+            cv2.drawContours(_image, [np.append(results[2 * j], results[2 * j + 1][::-1], axis=0) * 10], 0, 1, thickness)
+            if np.sum(np.bitwise_and(_image, image_white)) == 0:
+                image_white = np.bitwise_or(image_white, _image)
+
         ## Resize and draw over the original image
-        prediction_final = cv2.resize(prediction_final, (shape[1], shape[0]), cv2.INTER_CUBIC)
-        image[prediction_final == 1] = 0
+        image[image_white == 1] = 0
 
         # Save result
         tifffile.imwrite(os.path.join(output_folder, os.path.basename(image_path)), image.astype(np.uint8))
