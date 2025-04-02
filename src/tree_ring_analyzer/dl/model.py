@@ -2,6 +2,7 @@ import tensorflow as tf
 from tensorflow.keras import layers
 
 
+
 class AttentionUnet:
 
 
@@ -131,5 +132,3 @@ class AttentionUnet:
         outputs = layers.Conv2D(1, (1,1), padding="same", activation = self.activation)(u9)
         # unet model with Keras Functional API
         self.model = tf.keras.Model(inputs, outputs, name="U-Net")
-
-

@@ -1,8 +1,9 @@
 from tree_ring_analyzer.segmentation import TreeRingSegmentation
-from tree_ring_analyzer.dl.model import AttentionUnet
 import tifffile
 import tensorflow as tf
 import matplotlib.pyplot as plt
+
+
 
 if __name__ == '__main__':
     image_path = '/home/khietdang/Documents/khiet/treeRing/input/1E_4milieu8microns_x40.tif'

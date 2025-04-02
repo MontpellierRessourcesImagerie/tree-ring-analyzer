@@ -2,19 +2,13 @@ from brightest_path_lib.algorithm import AStarSearch
 from brightest_path_lib.heuristic import Heuristic
 import copy
 import cv2
-import glob
 import math
 import multiprocessing
 from multiprocessing import Pool
 import numpy as np
-import os
-from skimage.morphology import skeletonize
-from scipy.ndimage import binary_dilation, median_filter
+from scipy.ndimage import binary_dilation
 from scipy.signal import find_peaks
 from skimage.filters import threshold_otsu
-import tensorflow as tf
-from tensorflow.keras import layers
-import tifffile
 from tree_ring_analyzer.tiles.tiler import ImageTiler2D
 
 
@@ -167,6 +161,7 @@ class TreeRingSegmentation:
                 data.append((image_lower, 2 * self.center[1] - peaks1[j], peaks1[j], dark_point, np.array(self.center)))
         
         return data
+    
 
     @staticmethod
     def traceHalfRing(image, peak1, peak2, light_point, center):
@@ -198,10 +193,10 @@ class TreeRingSegmentation:
             if np.sum(np.bitwise_and(_image, image_white)) == 0:
                 image_white = np.bitwise_or(image_white, _image)
 
-        ## Resize and draw over the original image
         image_white[image_white == 1] = 255
 
         return image_white
+
 
     def segmentImage(self, image):
         self.predictRing(image)
@@ -213,3 +208,4 @@ class TreeRingSegmentation:
             results = pool.starmap(self.traceHalfRing, data)
 
         self.maskRings = self.createMaskOfRings(results)
+

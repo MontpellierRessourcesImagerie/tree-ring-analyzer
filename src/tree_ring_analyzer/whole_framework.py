@@ -8,8 +8,7 @@ import multiprocessing
 from multiprocessing import Pool
 import numpy as np
 import os
-from skimage.morphology import skeletonize
-from scipy.ndimage import binary_dilation, median_filter
+from scipy.ndimage import binary_dilation
 from scipy.signal import find_peaks
 from skimage.filters import threshold_otsu
 import tensorflow as tf
