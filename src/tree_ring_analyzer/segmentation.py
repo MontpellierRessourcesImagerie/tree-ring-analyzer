@@ -34,9 +34,8 @@ class CircleHeuristicFunction(Heuristic):
         current_x, current_y = current_point[1], current_point[0]
         goal_x, goal_y = goal_point[1], goal_point[0]
         
-        x_diff = (goal_x - current_x) * self.scale_x
-        y_diff = (goal_y - current_y) * self.scale_y
-
+        x_diff = (goal_x - current_x)
+        y_diff = (goal_y - current_y)
         diff = np.abs(np.sqrt(np.sum((self.center - current_point) ** 2)) - self.radius)
         
         return math.sqrt((x_diff * x_diff) + (y_diff * y_diff)) + diff ** 2
@@ -112,7 +111,7 @@ class TreeRingSegmentation:
 
         ## Center identification from pith
         one_indice = np.where(pith == 1)
-        self.center = np.array([int(np.mean(one_indice[0])), int(np.mean(one_indice[1]))])
+        self.center = int(np.mean(one_indice[0])), int(np.mean(one_indice[1]))
         dark_point = self.center[0]
 
         ## Delete pith area from ring prediction
@@ -156,26 +155,26 @@ class TreeRingSegmentation:
                 break
             j = j[0]
             i = i[0]
-            data.append((image_upper, peaks1[j], peaks2[i], dark_point - 1))
-            data.append((image_lower, peaks1[j], peaks2[i], dark_point))
+            data.append((image_upper, peaks1[j], peaks2[i], dark_point - 1, np.array(self.center)))
+            data.append((image_lower, peaks1[j], peaks2[i], dark_point, np.array(self.center)))
             remains.remove(j)
             diff_pp[j, :] = max_value
             diff_pp[:, i] = max_value
 
         for j in remains:
             if 0.05 * width <= 2 * self.center[1] - peaks1[j] < 0.95 * width:
-                data.append((image_upper, 2 * self.center[1] - peaks1[j], peaks1[j], dark_point - 1))
-                data.append((image_lower, 2 * self.center[1] - peaks1[j], peaks1[j], dark_point))
+                data.append((image_upper, 2 * self.center[1] - peaks1[j], peaks1[j], dark_point - 1, np.array(self.center)))
+                data.append((image_lower, 2 * self.center[1] - peaks1[j], peaks1[j], dark_point, np.array(self.center)))
         
         return data
 
-
-    def traceHalfRing(self, image, peak1, peak2, light_point):
+    @staticmethod
+    def traceHalfRing(image, peak1, peak2, light_point, center):
         start_point = np.array([light_point, peak1])
         goal_point = np.array([light_point, peak2])
-        radius = (np.sqrt(np.sum((start_point - self.center) ** 2)) + np.sqrt(np.sum((start_point - self.center) ** 2))) / 2
+        radius = (np.sqrt(np.sum((start_point - center) ** 2)) + np.sqrt(np.sum((start_point - center) ** 2))) / 2
         search_algorithm = AStarSearch(image, start_point=start_point, goal_point=goal_point)
-        search_algorithm.heuristic_function = CircleHeuristicFunction(center=self.center, radius=radius)
+        search_algorithm.heuristic_function = CircleHeuristicFunction(center=center, radius=radius)
         brightest_path = search_algorithm.search()
 
         result = np.array(search_algorithm.result)[:, 1]
