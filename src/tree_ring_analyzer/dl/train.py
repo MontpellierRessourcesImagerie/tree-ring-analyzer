@@ -78,7 +78,7 @@ class Training:
                                                    mode='min',  # Minimize the loss
                                                    verbose=1)
         
-        self.batchSize = 8
+        self.batchSize = 64
         self.bufferSize = 512
         self.learningRate = 0.001
         
@@ -93,15 +93,15 @@ class Training:
 
         train_path_dataset = tf.data.Dataset.from_tensor_slices((train_input_paths, train_mask_paths))
         trainDataset = train_path_dataset.map(lambda img_path, label: (read_images(img_path, label)), num_parallel_calls=tf.data.AUTOTUNE)
-        trainDataset = trainDataset.cache().shuffle(self.bufferSize).batch(self.batchSize).repeat()
-        self.trainDataset = trainDataset.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
+        trainDataset = trainDataset.shuffle(self.bufferSize).batch(self.batchSize)
+        self.trainDataset = trainDataset.prefetch(tf.data.AUTOTUNE)
 
         val_input_paths = [os.path.join(self.valInputPath, path) for path in os.listdir(self.valInputPath) if path.endswith(".tif")]
         val_mask_paths = [os.path.join(self.valLabelPath, path) for path in os.listdir(self.valLabelPath) if path.endswith(".tif")]
         val_path_dataset = tf.data.Dataset.from_tensor_slices((val_input_paths, val_mask_paths))
         valDataset = val_path_dataset.map(lambda img_path, label: (read_images(img_path, label)), num_parallel_calls=tf.data.AUTOTUNE)
-        valDataset = valDataset.cache().shuffle(self.bufferSize).batch(self.batchSize).repeat()
-        self.valDataset = valDataset.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
+        valDataset = valDataset.shuffle(self.bufferSize).batch(self.batchSize)
+        self.valDataset = valDataset.prefetch(tf.data.AUTOTUNE)
 
     
     def _compileModel(self, model):

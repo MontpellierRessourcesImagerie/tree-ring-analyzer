@@ -29,16 +29,12 @@ class CustomHeuristicFunction(Heuristic):
         if (len(current_point) == 0 or len(goal_point) == 0) or (len(current_point) != len(goal_point)):
             raise ValueError
 
-        current_x, current_y = current_point[1], current_point[0]
-        goal_x, goal_y = goal_point[1], goal_point[0]
-        
-        x_diff = (goal_x - current_x)
-        y_diff = (goal_y - current_y)
+        diff0 = np.sqrt(np.sum((current_point - goal_point) ** 2))
+        diff1 = (np.abs(np.sqrt(np.sum((self.center - current_point) ** 2)) - self.radius))
 
-        diff = np.abs(np.sqrt(np.sum((self.center - current_point) ** 2)) - self.radius)
         
-        return math.sqrt((x_diff * x_diff) + (y_diff * y_diff)) + (diff ** 2)
-
+        return diff0 + diff1 ** 3
+    
 def create_cone(image, center, max_height):
     h, w = image.shape
     x0, y0 = center
@@ -58,7 +54,7 @@ def create_cone(image, center, max_height):
     return D.astype(np.int32)
 
 
-def create_light_part(image, dark_point1, dark_point2):
+def predict_num_peak(image, dark_point1, dark_point2):
     max_height = min(dark_point1, image.shape[0] - dark_point1, dark_point2, image.shape[1] - dark_point2)
     image_new = np.zeros((2 * max_height, 2 * max_height))
     image_new[:max_height, :max_height] = cv2.resize(image[:dark_point1, :dark_point2], (max_height, max_height))
@@ -67,23 +63,11 @@ def create_light_part(image, dark_point1, dark_point2):
     image_new[max_height:, max_height:] = cv2.resize(image[dark_point1:, dark_point2:], (max_height, max_height))
     cone_image = create_cone(image_new, (dark_point1, dark_point2), max_height=max_height)
 
-    image1 = image_new[:, :max_height]
-    cone_image1 = cone_image[:, :max_height]
-    light_part1 = [np.mean(image1[cone_image1 == i]) for i in range(0, max_height)]
+    light_part = np.array([np.mean(image_new[cone_image == i]) for i in range(0, max_height)])
 
-    image2 = image_new[:, max_height:]
-    cone_image2 = cone_image[:, max_height:]
-    light_part2 = [np.mean(image2[cone_image2 == i]) for i in range(0, max_height)]
+    peaks, _ = find_peaks(light_part, distance= 0.05 *  image.shape[1])
 
-    light_part = np.zeros(image.shape[1])
-    light_part[:dark_point2] = np.interp(np.linspace(0, len(light_part1) - 1, dark_point2),
-                                         np.arange(0, max_height),
-                                         light_part1)
-    light_part[dark_point2:] = np.interp(np.linspace(0, len(light_part2) - 1, len(light_part) - dark_point2),
-                                         np.arange(0, max_height),
-                                         light_part2)
-
-    return light_part
+    return len(peaks)
     
 
 def plot_half_ring(image, peak1, peak2, light_point, center):
@@ -103,12 +87,12 @@ def plot_half_ring(image, peak1, peak2, light_point, center):
 
 if __name__ == '__main__':
     t0 = time.time()
-    thickness = 1
-    folder_name = '/home/khietdang/Documents/khiet/treeRing/predictions_bigDistance'
-    pith_name = '/home/khietdang/Documents/khiet/treeRing/predictions_pith'
-    input_name = '/home/khietdang/Documents/khiet/treeRing/input'
-    # image_list = glob.glob(f'/home/khietdang/Documents/khiet/treeRing/{folder_name}/*.tif')
-    image_list = [os.path.join(folder_name, '8 E 4 t_8µm_x50.tif')]
+    thickness = 20
+    folder_name = '/home/khietdang/Documents/khiet/treeRing/transfer/predictions_bigDistance'
+    pith_name = '/home/khietdang/Documents/khiet/treeRing/transfer/predictions_pith'
+    input_name = '/home/khietdang/Documents/khiet/treeRing/transfer/input_transfer'
+    image_list = glob.glob(os.path.join(folder_name, '*.tif'))
+    # image_list = [os.path.join(folder_name, '17(11)_x50_8 µm.tif')]
     for image_path in image_list:
         print(image_path)
         image = tifffile.imread(image_path)
@@ -128,19 +112,23 @@ if __name__ == '__main__':
         image = image * (1 - pith_dilated)
 
         dark_point = center[0]
-        # light_part = create_light_part(image, dark_point, center[1])
-        light_part = np.mean(image[dark_point - 10:dark_point + 10, :], axis=0)
-        # plt.plot(light_part)
-        # plt.show()
-        # raise ValueError
+        # num_peak = predict_num_peak(image, dark_point, center[1])
+        
+        light_part = np.mean(image[dark_point - int(0.05 * width):dark_point + int(0.05 * width), :], axis=0)
         ret = threshold_otsu(light_part)
         peaks1, _ = find_peaks(light_part[:center[1]], height=ret, distance=0.05 * width)
-        peaks1 = peaks1[::-1]
+        if len(peaks1) == 0:
+            peaks1, _ = find_peaks(light_part[:center[1]], height=threshold_otsu(light_part[:center[1]]), 
+                                   distance=0.05 * width)
         peaks1 = peaks1[peaks1 > 0.05 * width]
         peaks2, _ = find_peaks(light_part[center[1]:], height=ret, distance=0.05 * width)
+        if len(peaks2) == 0:
+            peaks2, _ = find_peaks(light_part[center[1]:], height=threshold_otsu(light_part[center[1]:]), 
+                                   distance=0.05 * width)
+        peaks2 = peaks2[peaks2 < 0.45 * width]
         peaks2 = peaks2 + center[1]
-        peaks2 = peaks2[peaks2 < 0.95 * width]
-
+        
+        
         if len(peaks1) < len(peaks2):
             a = copy.deepcopy(peaks1)
             peaks1 = copy.deepcopy(peaks2)
@@ -163,7 +151,7 @@ if __name__ == '__main__':
         image_lower = image_lower * image
         for k in range(0, num_pair, 1):
             j, i = np.where(diff_pp == np.min(diff_pp))
-            if len(j) >= len(peaks1) * len(peaks2):
+            if len(j) >= len(peaks1) * len(peaks2) and len(j) != 1:
                 break
             j = j[0]
             i = i[0]
@@ -200,7 +188,7 @@ if __name__ == '__main__':
         image_white[image_white == 1] = 255
         input_image[image_white == 255] = 0
 
-        plt.figure()
+        plt.figure(figsize=(10, 10))
         plt.subplot(1, 2, 1)
         plt.imshow(image_white)
         for i in range(0, len(peaks1), 1):
@@ -208,7 +196,8 @@ if __name__ == '__main__':
         for i in range(0, len(peaks2), 1):
             plt.plot(peaks2[i] * 10, dark_point * 10, 'bo')
         plt.subplot(1, 2, 2)
-        plt.imshow(image)
+        plt.imshow(input_image)
         plt.show()
+        plt.close()
 
     print(time.time() - t0)

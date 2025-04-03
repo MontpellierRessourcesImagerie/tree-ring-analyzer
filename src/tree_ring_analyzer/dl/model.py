@@ -6,129 +6,85 @@ from tensorflow.keras import layers
 class AttentionUnet:
 
 
-    def __init__(self, filter=64, activation='linear'):
+    def __init__(self, input_size, filter_num, n_labels, stack_num_down=2, stack_num_up=2,
+                 activation='relu', output_activation='softmax', name='AttentionUnet'):
         self.model = None
-        self.filter = filter
+        self.input_size = input_size
+        self.filter_num = filter_num
+        self.n_labels = n_labels
+        self.stack_num_down = stack_num_down
+        self.stack_num_up = stack_num_up
         self.activation = activation
+        self.output_activation = output_activation
+        self.name = name
+
+        self.p = []
+        self.f = []
+        self.u = []
         self._build()
 
+  
+    def stack_conv_block(self, x, n_filters, stack_num):
+        for i in range(0, stack_num):
+            x = layers.Conv2D(n_filters, 3, padding = "same", activation = self.activation, kernel_initializer = "he_normal")(x)
 
-    @classmethod    
-    def double_conv_block(cls, x, n_filters):
-        # Conv2D then ReLU activation
-        x = layers.Conv2D(n_filters, 3, padding = "same", activation = "relu", kernel_initializer = "he_normal")(x)
-        # Conv2D then ReLU activation
-        x = layers.Conv2D(n_filters, 3, padding = "same", activation = "relu", kernel_initializer = "he_normal")(x)
         return x
 
 
-    @classmethod    
-    def downsample_block(cls, x, n_filters):
-        f = AttentionUnet.double_conv_block(x, n_filters)
+    def downsample_block(self, x, n_filters):
+        f = self.stack_conv_block(x, n_filters, self.stack_num_down)
         p = layers.MaxPool2D(2)(f)
         p = layers.Dropout(0.3)(p)
         return f, p
 
 
-    @classmethod
-    def attention_gate(cls, g, s, num_filters):
+    def attention_gate(self, g, s, num_filters):
         Wg = layers.Conv2D(num_filters, 3, padding="same")(g)
         Wg = layers.BatchNormalization()(Wg)
     
         Ws = layers.Conv2D(num_filters, 3, padding="same")(s)
         Ws = layers.BatchNormalization()(Ws)
     
-        out = layers.Activation("relu")(Wg + Ws)
+        out = layers.Activation(self.activation)(Wg + Ws)
         out = layers.Conv2D(num_filters, 3, padding="same")(out)
         out = layers.Activation("sigmoid")(out)
     
         return out * s
 
 
-    @classmethod  
-    def upsample_block(cls, x, conv_features, n_filters):
+    def upsample_block(self, x, conv_features, n_filters):
         # upsample
         x = layers.Conv2DTranspose(n_filters, 3, 2, padding="same")(x)
-        s = AttentionUnet.attention_gate(x, conv_features, n_filters)
+        s = self.attention_gate(x, conv_features, n_filters)
         # concatenate
         x = layers.concatenate([x, s])
         # dropout
         x = layers.Dropout(0.3)(x)
         # Conv2D twice with ReLU activation
-        x = AttentionUnet.double_conv_block(x, n_filters)
-        return x
-
-
-    @classmethod
-    def double_conv_block(cls, x, n_filters):
-        # Conv2D then ReLU activation
-        x = layers.Conv2D(n_filters, 3, padding = "same", activation = "relu", kernel_initializer = "he_normal")(x)
-        # Conv2D then ReLU activation
-        x = layers.Conv2D(n_filters, 3, padding = "same", activation = "relu", kernel_initializer = "he_normal")(x)
-        return x
-
-
-    @classmethod
-    def downsample_block(cls, x, n_filters):
-        f = AttentionUnet.double_conv_block(x, n_filters)
-        p = layers.MaxPool2D(2)(f)
-        p = layers.Dropout(0.3)(p)
-        return f, p
-
-
-    @classmethod
-    def attention_gate(cls, g, s, num_filters):
-        Wg = layers.Conv2D(num_filters, 3, padding="same")(g)
-        Wg = layers.BatchNormalization()(Wg)
-    
-        Ws = layers.Conv2D(num_filters, 3, padding="same")(s)
-        Ws = layers.BatchNormalization()(Ws)
-    
-        out = layers.Activation("relu")(Wg + Ws)
-        out = layers.Conv2D(num_filters, 3, padding="same")(out)
-        out = layers.Activation("sigmoid")(out)
-    
-        return out * s
-    
-
-    @classmethod
-    def upsample_block(cls, x, conv_features, n_filters):
-        # upsample
-        x = layers.Conv2DTranspose(n_filters, 3, 2, padding="same")(x)
-        s = AttentionUnet.attention_gate(x, conv_features, n_filters)
-        # concatenate
-        x = layers.concatenate([x, s])
-        # dropout
-        x = layers.Dropout(0.3)(x)
-        # Conv2D twice with ReLU activation
-        x = AttentionUnet.double_conv_block(x, n_filters)
+        x = self.stack_conv_block(x, n_filters, self.stack_num_up)
         return x
 
 
     def _build(self):
-        inputs = layers.Input(shape=(256,256,3))
-        # encoder: contracting path - downsample
-        # 1 - downsample
-        f1, p1 = AttentionUnet.downsample_block(inputs, self.filter)
-        # 2 - downsample
-        f2, p2 = AttentionUnet.downsample_block(p1, self.filter * 2)
+        inputs = layers.Input(shape=self.input_size)
 
-        # 3 - downsample
-        f3, p3 = AttentionUnet.downsample_block(p2, self.filter * 4)
-        # 4 - downsample
-        f4, p4 = AttentionUnet.downsample_block(p3, self.filter * 8)
-        # 5 - bottleneck
-        bottleneck = AttentionUnet.double_conv_block(p4, self.filter * 16)
+        # encoder: contracting path - downsample
+        self.p.append(inputs)
+        for i in range(0, len(self.filter_num) - 1):
+            f, p = self.downsample_block(self.p[i], self.filter_num[i])
+            self.p.append(p)
+            self.f.append(f)
+
+        bottleneck = self.stack_conv_block(self.p[-1], self.filter_num[-1], self.stack_num_down)
+
         # decoder: expanding path - upsample
-        # 6 - upsample
-        u6 = AttentionUnet.upsample_block(bottleneck, f4, self.filter * 8)
-        # 7 - upsample
-        u7 = AttentionUnet.upsample_block(u6, f3, self.filter * 4)
-        # 8 - upsample
-        u8 = AttentionUnet.upsample_block(u7, f2, self.filter * 2)
-        # 9 - upsample
-        u9 = AttentionUnet.upsample_block(u8, f1, self.filter)
-        # outputs
-        outputs = layers.Conv2D(1, (1,1), padding="same", activation = self.activation)(u9)
+        self.u.append(bottleneck)
+        for i in range(0, len(self.filter_num) - 1):
+            u = self.upsample_block(self.u[i], self.f[- (i + 1)], self.filter_num[- (i + 2)])
+            self.u.append(u)
+
+        outputs = layers.Conv2D(self.n_labels, (1,1), padding="same", activation = self.output_activation)(self.u[-1])
+
         # unet model with Keras Functional API
-        self.model = tf.keras.Model(inputs, outputs, name="U-Net")
+        self.model = tf.keras.Model(inputs, outputs, name=self.name)
+

@@ -545,12 +545,17 @@ if __name__ == '__main__':
         prediction_ring = prediction_ring * (1 - pith_dilated)
 
         ## Find start and goal points
-        light_part = np.mean(prediction_ring[dark_point - 10:dark_point + 10, :], axis=0)
+        light_part = np.mean(prediction_ring[dark_point - int(0.05 * width):dark_point + int(0.05 * width), :], axis=0)
         ret = threshold_otsu(light_part)
         peaks1, _ = find_peaks(light_part[:center[1]], height=ret, distance=0.05 * width)
-        peaks1 = peaks1[::-1]
+        if len(peaks1) == 0:
+            peaks1, _ = find_peaks(light_part[:center[1]], height=threshold_otsu(light_part[:center[1]]), 
+                                   distance=0.05 * width)
         peaks1 = peaks1[peaks1 > 0.05 * width]
         peaks2, _ = find_peaks(light_part[center[1]:], height=ret, distance=0.05 * width)
+        if len(peaks2) == 0:
+            peaks2, _ = find_peaks(light_part[center[1]:], height=threshold_otsu(light_part[center[1]:]), 
+                                   distance=0.05 * width)
         peaks2 = peaks2 + center[1]
         peaks2 = peaks2[peaks2 < 0.95 * width]
 

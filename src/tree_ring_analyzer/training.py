@@ -11,8 +11,10 @@ if __name__ == '__main__':
     val_input_path = "/home/khietdang/Documents/khiet/treeRing/tile_big_dis_otherrings/val/x"
     val_mask_path = "/home/khietdang/Documents/khiet/treeRing/tile_big_dis_otherrings/val/y"
 
-    unet_model = AttentionUnet(filter=7, 
-                               activation='linear',
+    unet_model = AttentionUnet(input_size=(256, 256, 3),
+                               filter_num=[7, 14, 28, 56, 112],
+                               n_labels=1,
+                               output_activation='linear',
                             #    activation='sigmoid',
                                ).model
 
