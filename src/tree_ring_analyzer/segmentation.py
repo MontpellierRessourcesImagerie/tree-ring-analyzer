@@ -10,13 +10,16 @@ from scipy.ndimage import binary_dilation
 from scipy.signal import find_peaks
 from skimage.filters import threshold_otsu
 from tree_ring_analyzer.tiles.tiler import ImageTiler2D
+import matplotlib.pyplot as plt
 
 
 
 class CircleHeuristicFunction(Heuristic):
-    def __init__(self, center, radius):
+    def __init__(self, center, radius, height, width):
         self.center = center
         self.radius = radius
+        self.height = height
+        self.width = width
 
 
     def estimate_cost_to_goal(self, current_point, goal_point):
@@ -25,14 +28,14 @@ class CircleHeuristicFunction(Heuristic):
         if (len(current_point) == 0 or len(goal_point) == 0) or (len(current_point) != len(goal_point)):
             raise ValueError
 
-        current_x, current_y = current_point[1], current_point[0]
-        goal_x, goal_y = goal_point[1], goal_point[0]
+        diff0 = np.sum((current_point - goal_point) ** 2)
+        diff1 = np.abs(self.radius - np.sqrt(np.sum((self.center - current_point) ** 2)))
         
-        x_diff = (goal_x - current_x)
-        y_diff = (goal_y - current_y)
-        diff = np.abs(np.sqrt(np.sum((self.center - current_point) ** 2)) - self.radius)
-        
-        return math.sqrt((x_diff * x_diff) + (y_diff * y_diff)) + diff ** 2
+        cost = np.sqrt(diff0) + diff1 ** 2
+        if 0.05 * self.height < current_point[0] < 0.95 * self.height and 0.05 * self.width < current_point[1] < 0.95 * self.width:
+            return cost
+        else:
+            return cost * 1000
     
 
 
@@ -59,8 +62,8 @@ class TreeRingSegmentation:
 
         ## Tiling
         tiles_manager = ImageTiler2D(self.patchSize, self.overlap, self.shape)
-        tiles = tiles_manager.image_to_tiles(image)
-        tiles = np.array(tiles)
+        tiles = tiles_manager.image_to_tiles(image, use_normalize=False)
+        tiles = np.array(tiles) / 255
 
         ## Prediction
         prediction_ring = np.squeeze(self.modelRing.predict(tiles, batch_size=self.batchSize, verbose=0))
@@ -75,10 +78,12 @@ class TreeRingSegmentation:
         prediction_ring = self.predictionRing
         ret = threshold_otsu(self.predictionRing)
         ring_indices = np.where(prediction_ring > ret)
-        center = int(np.mean(ring_indices[0])), int(np.mean(ring_indices[1]))
+        chose_indices = (0.2 * image.shape[0] < ring_indices[0]) & (ring_indices[0] < 0.8 * image.shape[0]) \
+            & (0.2 * image.shape[1] < ring_indices[1]) & (ring_indices[1] < 0.8 * image.shape[1])
+        center = int(np.mean(ring_indices[0][chose_indices])), int(np.mean(ring_indices[1][chose_indices]))
 
         ## Cropping
-        crop_size = int(0.1 * max(self.shape[1], self.shape[0])) * 2
+        crop_size = int(0.1 * max(self.shape[1], self.shape[0])) * 2 
         crop_img = image[center[0] - int(crop_size / 2):center[0] + int(crop_size / 2),
                          center[1] - int(crop_size / 2):center[1] + int(crop_size / 2)]
         crop_img = cv2.resize(crop_img, (self.patchSize, self.patchSize))[None, :, :, :]
@@ -90,11 +95,31 @@ class TreeRingSegmentation:
         prediction_pith = np.zeros((self.shape[0], self.shape[1]))
         prediction_pith[center[0] - int(crop_size / 2):center[0] + int(crop_size / 2),
                         center[1] - int(crop_size / 2):center[1] + int(crop_size / 2)] = copy.deepcopy(prediction_crop_pith)
-        
+
         ## Binarization
         pith = np.zeros((self.shape[0], self.shape[1]))
         pith[prediction_pith > 0.5] = 1
         self.pith = pith
+
+
+    @staticmethod
+    def create_cone(image, center, max_height):
+        h, w = image.shape
+        x0, y0 = center
+        
+        # Generate coordinate grids
+        x = np.arange(w)
+        y = np.arange(h)
+        Y, X = np.meshgrid(x, y)
+        
+        # Compute the Euclidean distance from the given point
+        D = np.sqrt((X - x0) ** 2 + (Y - y0) ** 2)
+        
+        # Compute cone height map
+        D = max_height - D
+        D[D < 0] = 0  # Clip negative values
+        
+        return D.astype(np.int32)
 
     
     def findEndPoints(self):
@@ -116,16 +141,24 @@ class TreeRingSegmentation:
         light_part = np.mean(prediction_ring[dark_point - int(0.05 * width):dark_point + int(0.05 * width), :], axis=0)
         ret = threshold_otsu(light_part)
         peaks1, _ = find_peaks(light_part[:self.center[1]], height=ret, distance=0.05 * width)
-        if len(peaks1) == 0:
-            peaks1, _ = find_peaks(light_part[:self.center[1]], height=threshold_otsu(light_part[:self.center[1]]), 
-                                   distance=0.05 * width)
         peaks1 = peaks1[peaks1 > 0.05 * width]
-        peaks2, _ = find_peaks(light_part[self.center[1]:], height=ret, distance=0.05 * width)
-        if len(peaks2) == 0:
-            peaks2, _ = find_peaks(light_part[self.center[1]:], height=threshold_otsu(light_part[self.center[1]:]), 
+        if len(peaks1) == 0:
+            peaks1, _ = find_peaks(light_part[:self.center[1]], height=threshold_otsu(light_part[int(0.1 * width):self.center[1]]), 
                                    distance=0.05 * width)
+            peaks1 = peaks1[peaks1 > 0.05 * width]
+
+        peaks2, _ = find_peaks(light_part[self.center[1]:], height=ret, distance=0.05 * width)
         peaks2 = peaks2 + self.center[1]
         peaks2 = peaks2[peaks2 < 0.95 * width]
+        if len(peaks2) == 0:
+            peaks2, _ = find_peaks(light_part[self.center[1]:], height=threshold_otsu(light_part[self.center[1]:int(0.9 * width)]), 
+                                   distance=0.05 * width)
+            peaks2 = peaks2 + self.center[1]
+            peaks2 = peaks2[peaks2 < 0.95 * width]
+
+        max_height = min(dark_point, prediction_ring.shape[0] - dark_point, self.center[1], prediction_ring.shape[1] - self.center[1])
+        cone_image = self.create_cone(prediction_ring, self.center, max_height)
+        prediction_ring[cone_image > max_height - min(self.center[1] - peaks1[-1], peaks2[0] - self.center[1]) * 0.9] = 0
 
         if len(peaks1) < len(peaks2):
             a = copy.deepcopy(peaks1)
@@ -172,9 +205,9 @@ class TreeRingSegmentation:
     def traceHalfRing(image, peak1, peak2, light_point, center):
         start_point = np.array([light_point, peak1])
         goal_point = np.array([light_point, peak2])
-        radius = (np.sqrt(np.sum((start_point - center) ** 2)) + np.sqrt(np.sum((start_point - center) ** 2))) / 2
+        radius = (np.sqrt(np.sum((start_point - center) ** 2)) + np.sqrt(np.sum((goal_point - center) ** 2))) / 2
         search_algorithm = AStarSearch(image, start_point=start_point, goal_point=goal_point)
-        search_algorithm.heuristic_function = CircleHeuristicFunction(center=center, radius=radius)
+        search_algorithm.heuristic_function = CircleHeuristicFunction(center=center, radius=radius, height=image.shape[0], width=image.shape[1])
         brightest_path = search_algorithm.search()
 
         result = np.array(search_algorithm.result)[:, 1]

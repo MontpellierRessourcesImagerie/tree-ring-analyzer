@@ -6,6 +6,7 @@ import shutil
 import multiprocessing
 from multiprocessing import Pool
 from tree_ring_analyzer.dl.preprocessing import savePith, createFolder, splitRingsAndPith, saveTile
+import cv2
 
 
 if __name__ == '__main__':
@@ -14,7 +15,6 @@ if __name__ == '__main__':
     big_dis_path = '/home/khietdang/Documents/khiet/treeRing/big_dis_otherrings'
     pith_path = '/home/khietdang/Documents/khiet/treeRing/pith'
     tile_path = '/home/khietdang/Documents/khiet/treeRing/tile_big_dis_otherrings'
-    crop_size = 1024
 
     masks_list = glob.glob(os.path.join(masks_path, '*.tif'))
 
@@ -36,13 +36,17 @@ if __name__ == '__main__':
         mask = tifffile.imread(mask_path)
         image = tifffile.imread(os.path.join(input_path, os.path.basename(mask_path)))
 
+        mask[mask == 255] = 1
+        mask = cv2.resize(mask, (2560, int(2560 * mask.shape[0] / mask.shape[1])))
+        image = cv2.resize(image, (2560, int(2560 * image.shape[0] / image.shape[1])))
+
         pith, other_rings_dis = splitRingsAndPith(mask)
 
         tifffile.imwrite(os.path.join(big_dis_path, os.path.basename(mask_path)), other_rings_dis)
 
         if mask_path in train:
             save_type = 'train'
-            num = 490
+            num = 500
         elif mask_path in test:
             save_type = 'test'
             num = 1

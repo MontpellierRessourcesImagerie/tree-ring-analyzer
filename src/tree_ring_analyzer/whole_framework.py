@@ -447,7 +447,7 @@ class CustomHeuristicFunction(Heuristic):
 def plot_half_ring(image, peak1, peak2, light_point, center):
     start_point = np.array([light_point, peak1])
     goal_point = np.array([light_point, peak2])
-    radius = (np.sqrt(np.sum((start_point - center) ** 2)) + np.sqrt(np.sum((start_point - center) ** 2))) / 2
+    radius = (np.sqrt(np.sum((start_point - center) ** 2)) + np.sqrt(np.sum((goal_point - center) ** 2))) / 2
     search_algorithm = AStarSearch(image, start_point=start_point, goal_point=goal_point)
     search_algorithm.heuristic_function = CustomHeuristicFunction(scale=(1.0, 1.0), center=center, radius=radius)
     brightest_path = search_algorithm.search()

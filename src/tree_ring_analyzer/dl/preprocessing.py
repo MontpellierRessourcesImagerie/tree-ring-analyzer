@@ -69,7 +69,7 @@ def saveTile(mask_path, mask, image, i, output_path, save_type, augment=True):
         img_aug, mask_aug = augmentImages(img_aug, mask_aug)
 
     tiles_manager = ImageTiler2D(256, 60, mask_aug.shape)
-    img_tiles = np.array(tiles_manager.image_to_tiles(img_aug, use_normalize=False))
+    img_tiles = np.array(tiles_manager.image_to_tiles(img_aug, use_normalize=True))
     mask_tiles = np.array(tiles_manager.image_to_tiles(mask_aug, use_normalize=False))
     
     for j in range(0, len(img_tiles)):
