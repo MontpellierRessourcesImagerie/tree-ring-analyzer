@@ -74,11 +74,11 @@ def saveTile(mask_path, mask, image, i, output_path, save_type, augment=True):
     
     for j in range(0, len(img_tiles)):
         mask_tile = mask_tiles[j]
-        if np.max(mask_tile) >= 12:
+        if np.max(mask_tile) >= 10:
             img_tile = img_tiles[j]
 
             tifffile.imwrite(os.path.join(output_path, save_type, 'x', os.path.basename(mask_path)[:-4] + f'_aug{i}_{j}.tif'),
-                            img_tile.astype(np.uint8))
+                            img_tile)
             tifffile.imwrite(os.path.join(output_path, save_type, 'y', os.path.basename(mask_path)[:-4] + f'_aug{i}_{j}.tif'),
                             mask_tile)
 

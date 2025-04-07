@@ -183,7 +183,7 @@ def morphologyOval(image_path, output_path):
 
 
 
-def measure_distance(points):
+def measureDistance(points):
     x1 = points[:, 0][:, None]
     x2 = points[:, 0][None, :]
     y1 = points[:, 1][:, None]
@@ -345,7 +345,7 @@ def endpoints(image_path, pith_folder, output_folder):
         center = int(np.mean(one_indice[0])), int(np.mean(one_indice[1]))
         dis_center = np.sqrt((center[0] - endpoints[:, 2]) ** 2 + (center[1] - endpoints[:, 1]) ** 2)
 
-        dis = measure_distance(endpoints[:, 1:3])
+        dis = measureDistance(endpoints[:, 1:3])
         max_value = np.max(dis) + 1
         dis[dis == 0] = max_value
         

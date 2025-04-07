@@ -10,6 +10,7 @@ import cv2
 
 if __name__ == '__main__':
     input_folder = '/home/khietdang/Documents/khiet/treeRing/input'
+    mask_folder = '/home/khietdang/Documents/khiet/treeRing/masks'
     output_folder = '/home/khietdang/Documents/khiet/treeRing/output'
     checkpoint_ring_path = '/home/khietdang/Documents/khiet/tree-ring-analyzer/models/bigDistance.keras'
     checkpoint_pith_path = '/home/khietdang/Documents/khiet/tree-ring-analyzer/models/pith.keras'
@@ -19,15 +20,20 @@ if __name__ == '__main__':
     for image_path in image_list:
         print(image_path)
         image = tifffile.imread(image_path)
+        mask = tifffile.imread(os.path.join(mask_folder, os.path.basename(image_path)))
 
-        model_ring = tf.keras.models.load_model(checkpoint_ring_path)
+        modelRing = tf.keras.models.load_model(checkpoint_ring_path)
 
-        model_pith = tf.keras.models.load_model(checkpoint_pith_path)
+        modelPith = tf.keras.models.load_model(checkpoint_pith_path)
 
-        treeRingSegment = TreeRingSegmentation(model_ring, model_pith)
-        treeRingSegment.segmentImage(image)
+        treeRingSegment = TreeRingSegmentation()
+        treeRingSegment.segmentImage(modelRing, modelPith, image)
         
         result = treeRingSegment.maskRings
 
         tifffile.imwrite(os.path.join(output_folder, os.path.basename(image_path)), result)
+
+        hausdorff, mse = treeRingSegment.evaluate(mask)
+        print('\tHausdorff Distance:', hausdorff)
+        print('\tMSE:', mse)
 

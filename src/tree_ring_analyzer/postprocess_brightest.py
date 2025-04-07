@@ -16,7 +16,7 @@ from skimage.filters import threshold_otsu, threshold_multiotsu
 import time
 import math
 from skimage.exposure import equalize_adapthist
-from tree_ring_analyzer.segmentation import CircleHeuristicFunction
+from tree_ring_analyzer.segmentation import CircleHeuristicFunction, TreeRingSegmentation
 
     
 def create_cone(image, center, max_height):
@@ -71,17 +71,18 @@ def plot_half_ring(image, peak1, peak2, light_point, center):
 
 if __name__ == '__main__':
     t0 = time.time()
-    thickness = 20
-    folder_name = '/home/khietdang/Documents/khiet/treeRing/predictions_bigDisRingAug'
+    thickness = 1
+    folder_name = '/home/khietdang/Documents/khiet/treeRing/predictions_bigDistance'
     pith_name = '/home/khietdang/Documents/khiet/treeRing/predictions_pith'
     input_name = '/home/khietdang/Documents/khiet/treeRing/input'
-    # image_list = glob.glob(os.path.join(folder_name, '*.tif'))
-    image_list = [os.path.join(folder_name, '3Tmilieu8microns_x40.tif')]
+    mask_name = '/home/khietdang/Documents/khiet/treeRing/masks'
+    image_list = glob.glob(os.path.join(folder_name, '*.tif'))
+    # image_list = [os.path.join(folder_name, '3Tmilieu8microns_x40.tif')]
     for image_path in image_list:
         print(image_path)
-        image = tifffile.imread(image_path)
-        height_ori, width_ori = image.shape
-        image = cv2.resize(image, (int(image.shape[1] / 10), int(image.shape[0] / 10)))
+        image_ori = tifffile.imread(image_path)
+        height_ori, width_ori = image_ori.shape
+        image = cv2.resize(image_ori, (int(width_ori / 10), int(height_ori / 10)))
         height, width = image.shape
 
         pith_whole = tifffile.imread(os.path.join(pith_name, os.path.basename(image_path)))
@@ -165,30 +166,41 @@ if __name__ == '__main__':
         contours, _ = cv2.findContours(pith_whole.astype(np.uint8), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
         chosen_contour = np.argmax([cv2.pointPolygonTest(contour, [center[1], center[0]], True) for contour in contours])
         cv2.drawContours(image_white, [np.array(contours[chosen_contour]) * 10], 0, 1, thickness)
+        predictedRings = [np.array(contours[chosen_contour]) * 10]
 
         length_results_sorted = np.argsort([len(results[i]) + len(results[i + 1]) for i in range(0, len(results), 2)])
         for i in range(0, len(length_results_sorted)):
             _image = np.zeros((height_ori, width_ori), dtype=np.uint8)
             j = length_results_sorted[i]
-            cv2.drawContours(_image, [np.append(results[2 * j], results[2 * j + 1][::-1], axis=0) * 10], 0, 1, thickness)
+            predictedRing = np.append(results[2 * j], results[2 * j + 1][::-1], axis=0) * 10
+            cv2.drawContours(_image, [predictedRing], 0, 1, thickness)
             if np.sum(np.bitwise_and(_image, image_white)) == 0:
                 image_white = np.bitwise_or(image_white, _image)
+                predictedRings.append(predictedRing)
 
         input_image = tifffile.imread(os.path.join(input_name, os.path.basename(image_path)))
         image_white = cv2.resize(image_white, (input_image.shape[1], input_image.shape[0]))
         image_white[image_white == 1] = 255
         input_image[image_white == 255] = 0
 
-        plt.figure(figsize=(10, 10))
-        plt.subplot(1, 2, 1)
-        plt.imshow(image_white)
-        for i in range(0, len(peaks1), 1):
-            plt.plot(peaks1[i] * 10, dark_point * 10, 'ro')
-        for i in range(0, len(peaks2), 1):
-            plt.plot(peaks2[i] * 10, dark_point * 10, 'bo')
-        plt.subplot(1, 2, 2)
-        plt.imshow(input_image)
-        plt.show()
-        plt.close()
+        mask = tifffile.imread(os.path.join(mask_name, os.path.basename(image_path)))
+        treeRingSeg = TreeRingSegmentation()
+        treeRingSeg.predictedRings = predictedRings
+        treeRingSeg.predictionRing = image_ori
+        hausdorff, mse = treeRingSeg.evaluate(mask)
+        print(hausdorff, mse)
+        input_image[mask == 1] = 0
+
+        # plt.figure(figsize=(10, 10))
+        # plt.subplot(1, 2, 1)
+        # plt.imshow(image_white)
+        # for i in range(0, len(peaks1), 1):
+        #     plt.plot(peaks1[i] * 10, dark_point * 10, 'ro')
+        # for i in range(0, len(peaks2), 1):
+        #     plt.plot(peaks2[i] * 10, dark_point * 10, 'bo')
+        # plt.subplot(1, 2, 2)
+        # plt.imshow(input_image)
+        # plt.show()
+        # plt.close()
 
     print(time.time() - t0)

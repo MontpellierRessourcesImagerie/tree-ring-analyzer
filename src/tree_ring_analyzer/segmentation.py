@@ -11,6 +11,8 @@ from scipy.signal import find_peaks
 from skimage.filters import threshold_otsu
 from tree_ring_analyzer.tiles.tiler import ImageTiler2D
 import matplotlib.pyplot as plt
+from scipy.ndimage import distance_transform_edt, binary_dilation
+from skimage.morphology import skeletonize
 
 
 
@@ -42,38 +44,49 @@ class CircleHeuristicFunction(Heuristic):
 class TreeRingSegmentation:
     
 
-    def __init__(self, modelRing, modelPith):
-        self.modelRing = modelRing
-        self.modelPith = modelPith
+    def __init__(self):
         self.patchSize = 256
         self.overlap = self.patchSize - 196
         self.batchSize = 8
         self.thickness = 1
+        self.iterations = 10
 
         self.predictionRing = None
         self.pith = None
+        self.predictedRings = []
         self.maskRings = None
         self.center = None
         self.shape = None
 
 
-    def predictRing(self, image):
+    def predictRing(self, modelRing, image, resize=None):
         self.shape = image.shape[0], image.shape[1]
 
+        ## Resize
+        if resize is not None:
+            shape = int(resize * self.shape[0] / self.shape[1]), resize
+            image = cv2.resize(image, (shape[1], shape[0]))
+        else:
+            shape = self.shape
+
         ## Tiling
-        tiles_manager = ImageTiler2D(self.patchSize, self.overlap, self.shape)
+        tiles_manager = ImageTiler2D(self.patchSize, self.overlap, shape)
         tiles = tiles_manager.image_to_tiles(image, use_normalize=False)
         tiles = np.array(tiles) / 255
 
         ## Prediction
-        prediction_ring = np.squeeze(self.modelRing.predict(tiles, batch_size=self.batchSize, verbose=0))
+        prediction_ring = np.squeeze(modelRing.predict(tiles, batch_size=self.batchSize, verbose=0))
 
         ## Reconstruction
         tiles_manager = ImageTiler2D(self.patchSize, self.overlap, self.shape[:2])
         self.predictionRing = tiles_manager.tiles_to_image(prediction_ring)
 
+        ## Resize
+        if resize is not None:
+            self.predictionRing = cv2.resize(self.predictionRing, (shape[0], shape[1]))
 
-    def predictPith(self, image):
+
+    def predictPith(self, modelPith, image):
         ## Center identification from ring prediction
         prediction_ring = self.predictionRing
         ret = threshold_otsu(self.predictionRing)
@@ -90,7 +103,7 @@ class TreeRingSegmentation:
         crop_img = crop_img / 255
 
         ## Prediction
-        prediction_crop_pith = self.modelPith.predict(crop_img, batch_size=1, verbose=0)
+        prediction_crop_pith = modelPith.predict(crop_img, batch_size=1, verbose=0)
         prediction_crop_pith = cv2.resize(prediction_crop_pith[0], (crop_size, crop_size))
         prediction_pith = np.zeros((self.shape[0], self.shape[1]))
         prediction_pith[center[0] - int(crop_size / 2):center[0] + int(crop_size / 2),
@@ -222,23 +235,26 @@ class TreeRingSegmentation:
         contours, _ = cv2.findContours(self.pith.astype(np.uint8), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
         chosen_contour = np.argmax([cv2.pointPolygonTest(contour, [self.center[1], self.center[0]], True) for contour in contours])
         cv2.drawContours(image_white, [np.array(contours[chosen_contour])], 0, 1, self.thickness)
+        self.predictedRings.append(np.array(contours[chosen_contour]))
 
         length_results_sorted = np.argsort([len(results[i]) + len(results[i + 1]) for i in range(0, len(results), 2)])
         for i in range(0, len(length_results_sorted)):
             _image = np.zeros((self.shape[0], self.shape[1]), dtype=np.uint8)
             j = length_results_sorted[i]
-            cv2.drawContours(_image, [np.append(results[2 * j], results[2 * j + 1][::-1], axis=0) * 10], 0, 1, self.thickness)
+            ring = np.append(results[2 * j], results[2 * j + 1][::-1], axis=0) * 10
+            cv2.drawContours(_image, [ring], 0, 1, self.thickness)
             if np.sum(np.bitwise_and(_image, image_white)) == 0:
                 image_white = np.bitwise_or(image_white, _image)
+                self.predictedRings.append(ring)
 
         image_white[image_white == 1] = 255
 
         return image_white
 
 
-    def segmentImage(self, image):
-        self.predictRing(image)
-        self.predictPith(image)
+    def segmentImage(self, modelRing, modelPith, image):
+        self.predictRing(modelRing, image)
+        self.predictPith(modelPith, image)
 
         data = self.findEndPoints()
 
@@ -247,3 +263,52 @@ class TreeRingSegmentation:
 
         self.maskRings = self.createMaskOfRings(results)
 
+
+    @staticmethod
+    def calculateRadius(ring):
+        center = np.mean(np.squeeze(ring), axis=0)
+        dis = np.sqrt(np.sum((np.squeeze(ring) - center[None, :]) ** 2, axis=-1))
+        return np.mean(dis)
+    
+
+    @staticmethod
+    def calculateDistance(ring1, ring2):
+        return np.sqrt(np.sum((ring1[:, None, :] - ring2[None, :, :]) ** 2, axis=-1))
+
+
+    def calculateHausdorffDistance(self, ring1, ring2):
+        dis = self.calculateDistance(ring1, ring2)
+        return max(np.max(np.min(dis, axis=0)), np.max(np.min(dis, axis=1)))
+    
+
+    def evaluate(self, mask):
+        predictedRadius = []
+        for i in range(0, len(self.predictedRings)):
+            predictedRadius.append(self.calculateRadius(self.predictedRings[i]))
+
+        mask[np.bitwise_not(skeletonize(mask))] = 0
+        num_labels, labeled_mask = cv2.connectedComponents(mask)
+        gtRings = []
+        gtRadius = []
+        for i in range(1, num_labels):
+            gtRing = np.transpose(np.array(np.where(labeled_mask == i)))
+            gtRings.append(gtRing[:, ::-1])
+            gtRadius.append(self.calculateRadius(gtRing))
+
+        diffRadius = np.abs(np.array(predictedRadius)[:, None] - np.array(gtRadius)[None, :])
+        max_value = np.max(diffRadius)
+        num_pairs = np.min(diffRadius.shape)
+        hausdorff = []
+        for i in range(0, num_pairs):
+            j, k = np.where(diffRadius ==  np.min(diffRadius))
+            j = j[0]
+            k = k[0]
+            hausdorff.append(self.calculateHausdorffDistance(np.squeeze(self.predictedRings[j]), np.squeeze(gtRings[k])))
+            diffRadius[j, :] = max_value
+            diffRadius[:, k] = max_value
+
+        mask[mask == 255] = 1
+        dilatedMask = binary_dilation(mask, iterations=self.iterations)
+        distanceMap = distance_transform_edt(dilatedMask)
+        return np.mean(hausdorff), np.mean((self.predictionRing - distanceMap) ** 2)
+    

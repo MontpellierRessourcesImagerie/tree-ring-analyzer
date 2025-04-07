@@ -22,7 +22,7 @@ if __name__ == '__main__':
                      train_mask_path,
                      val_input_path,
                      val_mask_path,
-                     name='bigDisRingAug',
+                     name='bigDisRingAug2',
                      loss='mse',
                     #  loss=bce_dice_loss(bce_coef=0.3),
                     numEpochs=10,

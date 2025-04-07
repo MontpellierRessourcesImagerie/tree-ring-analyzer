@@ -7,6 +7,8 @@ import multiprocessing
 from multiprocessing import Pool
 from tree_ring_analyzer.dl.preprocessing import savePith, createFolder, splitRingsAndPith, saveTile
 import cv2
+import matplotlib.pyplot as plt
+import numpy as np
 
 
 if __name__ == '__main__':
