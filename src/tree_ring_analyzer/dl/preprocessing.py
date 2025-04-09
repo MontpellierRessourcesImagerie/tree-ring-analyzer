@@ -62,7 +62,7 @@ def savePith(mask_path, pith, image, i, output_path, save_type, augment=True):
         
 
 
-def saveTile(mask_path, mask, image, i, output_path, save_type, augment=True):
+def saveTile(mask_path, mask, image, i, output_path, save_type, augment=True, thres=10):
     mask_aug = copy.deepcopy(mask)
     img_aug = copy.deepcopy(image)
     if augment:
@@ -74,7 +74,7 @@ def saveTile(mask_path, mask, image, i, output_path, save_type, augment=True):
     
     for j in range(0, len(img_tiles)):
         mask_tile = mask_tiles[j]
-        if np.max(mask_tile) >= 10:
+        if np.max(mask_tile) >= thres:
             img_tile = img_tiles[j]
 
             tifffile.imwrite(os.path.join(output_path, save_type, 'x', os.path.basename(mask_path)[:-4] + f'_aug{i}_{j}.tif'),

@@ -8,6 +8,7 @@ import copy
 import math
 from skimage.color import rgb2gray
 import glob
+import cv2
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
@@ -347,28 +348,35 @@ class Patch2D(object):
         ])
 
 if __name__ == "__main__":
-    input_folder = '/home/khietdang/Documents/khiet/treeRing/transfer/input_transfer'
-    checkpoint = '/home/khietdang/Documents/khiet/tree-ring-analyzer/models/bigDisRingAug.keras'
-    output_folder = f'/home/khietdang/Documents/khiet/treeRing/transfer/predictions_{os.path.basename(checkpoint)[:-6]}'
+    input_folder = '/home/khietdang/Documents/khiet/treeRing/input'
+    checkpoint = '/home/khietdang/Documents/khiet/tree-ring-analyzer/models/bigDisRingAug2.keras'
+    output_folder = f'/home/khietdang/Documents/khiet/treeRing/predictions_{os.path.basename(checkpoint)[:-6]}'
     os.makedirs(output_folder, exist_ok=True)
     list_input = glob.glob(os.path.join(input_folder, '*.tif'))
     patch_size = 256
     overlap = patch_size - 196
     batch_size = 8
+    resize = 2560
 
     model = tf.keras.models.load_model(checkpoint)
 
     for im_name in list_input:
         im_data = tifffile.imread(im_name)
+        shape_ori = im_data.shape[0], im_data.shape[1]
+
+        shape = int(resize * im_data.shape[0] / im_data.shape[1]), resize
+        im_data = cv2.resize(im_data, (shape[1], shape[0]))
         
         shape = im_data.shape
         tiles_manager = ImageTiler2D(patch_size, overlap, shape)
-        tiles = tiles_manager.image_to_tiles(im_data, use_normalize=False)
-        tiles = np.array(tiles) / 255
+        tiles = tiles_manager.image_to_tiles(im_data, use_normalize=True)
+        tiles = np.array(tiles)
         predictions = np.squeeze(model.predict(tiles, batch_size=batch_size, verbose=1))
 
         tiles_manager = ImageTiler2D(patch_size, overlap, shape[:2])
         probabilities = tiles_manager.tiles_to_image(predictions)
+
+        probabilities = cv2.resize(probabilities, (shape_ori[1], shape_ori[0]))
 
         tifffile.imwrite(os.path.join(output_folder, os.path.basename(im_name)), probabilities)
 
