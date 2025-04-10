@@ -1,22 +1,16 @@
 from brightest_path_lib.algorithm import AStarSearch
-from brightest_path_lib.cost import Cost
-from brightest_path_lib.heuristic import Heuristic
 import tifffile
 import numpy as np
 import matplotlib.pyplot as plt
 import copy
 from scipy.signal import find_peaks
 import cv2
-import multiprocessing
 from multiprocessing import Pool
 import os
-import glob
 from scipy.ndimage import binary_dilation, median_filter
-from skimage.filters import threshold_otsu, threshold_multiotsu
+from skimage.filters import threshold_otsu
 import time
-import math
-from skimage.exposure import equalize_adapthist
-from tree_ring_analyzer.segmentation import CircleHeuristicFunction, TreeRingSegmentation
+from tree_ring_analyzer.segmentation import CircleHeuristicFunction
 
     
 def create_cone(image, center, max_height):
@@ -75,15 +69,21 @@ if __name__ == '__main__':
     folder_name = '/home/khietdang/Documents/khiet/treeRing/transfer/predictions_bigDistance'
     pith_name = '/home/khietdang/Documents/khiet/treeRing/transfer/predictions_pith'
     input_name = '/home/khietdang/Documents/khiet/treeRing/transfer/input_transfer'
+    resize = 5
     # mask_name = '/home/khietdang/Documents/khiet/treeRing/masks'
     # image_list = glob.glob(os.path.join(folder_name, '*.tif'))
-    image_list = [os.path.join(folder_name, '73m_x50_8 µm.tif')]
+    image_list = [os.path.join(folder_name, '68m_x50_8 µm.tif')]
     for image_path in image_list:
         print(image_path)
         image_ori = tifffile.imread(image_path)
         height_ori, width_ori = image_ori.shape
-        image = cv2.resize(image_ori, (int(width_ori / 10), int(height_ori / 10)))
+        image = cv2.resize(image_ori, (int(width_ori / resize), int(height_ori / resize)))
         height, width = image.shape
+        filter_size = (int(0.0075 * height), int(0.0075 * width))
+        max_value = int(np.max(image) / 2)
+        filter_size = (filter_size[0] if filter_size[0] < max_value else max_value, 
+                       filter_size[1] if filter_size[1] < max_value else max_value)
+        image = median_filter(image, filter_size)
 
         pith_whole = tifffile.imread(os.path.join(pith_name, os.path.basename(image_path)))
         pith_whole[pith_whole >= 0.5] = 1
@@ -99,11 +99,11 @@ if __name__ == '__main__':
         dark_point = center[0]
         # num_peak = predict_num_peak(image, dark_point, center[1])
         
-        light_part = np.mean(image[dark_point - int(0.05 * width):dark_point + int(0.05 * width), :], axis=0)
+        light_part = np.mean(image[dark_point - int(0.05 * height):dark_point + int(0.05 * height), :], axis=0)
         ret = threshold_otsu(light_part)
         peaks1, _ = find_peaks(light_part[:center[1]], height=ret, distance=0.05 * width)
         peaks1 = peaks1[peaks1 > 0.05 * width]
-        if len(peaks1) == 0:
+        if len(peaks1) <= 1:
             peaks1, _ = find_peaks(light_part[:center[1]], height=threshold_otsu(light_part[:center[1]]), 
                                    distance=0.05 * width)
             peaks1 = peaks1[peaks1 > 0.05 * width]
@@ -111,7 +111,7 @@ if __name__ == '__main__':
         peaks2, _ = find_peaks(light_part[center[1]:], height=ret, distance=0.05 * width)
         peaks2 = peaks2 + center[1]
         peaks2 = peaks2[peaks2 < 0.95 * width]
-        if len(peaks2) == 0:
+        if len(peaks2) <= 1:
             peaks2, _ = find_peaks(light_part[center[1]:], height=threshold_otsu(light_part[center[1]:]), 
                                    distance=0.05 * width)
             peaks2 = peaks2 + center[1]
@@ -142,9 +142,10 @@ if __name__ == '__main__':
         image_lower[dark_point:] = 1
         image_lower = image_lower * image
         for k in range(0, num_pair, 1):
-            j, i = np.where(diff_pp == np.min(diff_pp))
-            if len(j) >= len(peaks1) * len(peaks2) and len(j) != 1:
+            min_value = np.min(diff_pp)
+            if min_value == max_value:
                 break
+            j, i = np.where(diff_pp == min_value)
             j = j[0]
             i = i[0]
             data.append((image_upper, peaks1[j], peaks2[i], dark_point - 1, np.array(center)))
@@ -165,14 +166,14 @@ if __name__ == '__main__':
         image_white = np.zeros((height_ori, width_ori), dtype=np.uint8)
         contours, _ = cv2.findContours(pith_whole.astype(np.uint8), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
         chosen_contour = np.argmax([cv2.pointPolygonTest(contour, [center[1], center[0]], True) for contour in contours])
-        cv2.drawContours(image_white, [np.array(contours[chosen_contour]) * 10], 0, 1, thickness)
-        predictedRings = [np.array(contours[chosen_contour]) * 10]
+        cv2.drawContours(image_white, [np.array(contours[chosen_contour]) * resize], 0, 1, thickness)
+        predictedRings = [np.array(contours[chosen_contour]) * resize]
 
         length_results_sorted = np.argsort([len(results[i]) + len(results[i + 1]) for i in range(0, len(results), 2)])
         for i in range(0, len(length_results_sorted)):
             _image = np.zeros((height_ori, width_ori), dtype=np.uint8)
             j = length_results_sorted[i]
-            predictedRing = np.append(results[2 * j], results[2 * j + 1][::-1], axis=0) * 10
+            predictedRing = np.append(results[2 * j], results[2 * j + 1][::-1], axis=0) * resize
             cv2.drawContours(_image, [predictedRing], 0, 1, thickness)
             if np.sum(np.bitwise_and(_image, image_white)) == 0:
                 image_white = np.bitwise_or(image_white, _image)
@@ -195,11 +196,11 @@ if __name__ == '__main__':
         plt.subplot(1, 2, 1)
         plt.imshow(image_white)
         for i in range(0, len(peaks1), 1):
-            plt.plot(peaks1[i] * 10, dark_point * 10, 'ro')
+            plt.plot(peaks1[i] * resize, dark_point * resize, 'ro')
         for i in range(0, len(peaks2), 1):
-            plt.plot(peaks2[i] * 10, dark_point * 10, 'bo')
+            plt.plot(peaks2[i] * resize, dark_point * resize, 'bo')
         plt.subplot(1, 2, 2)
-        plt.imshow(input_image)
+        plt.imshow(image)
         plt.show()
         plt.close()
 

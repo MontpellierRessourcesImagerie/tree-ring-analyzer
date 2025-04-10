@@ -40,8 +40,6 @@ if __name__ == '__main__':
         image = tifffile.imread(os.path.join(input_path, os.path.basename(mask_path)))
 
         mask[mask == 255] = 1
-        # mask = cv2.resize(mask, (2560, int(2560 * mask.shape[0] / mask.shape[1])))
-        # image = cv2.resize(image, (2560, int(2560 * image.shape[0] / image.shape[1])))
 
         pith, other_rings_dis = splitRingsAndPith(mask)
         thres = np.max(other_rings_dis)
@@ -59,15 +57,15 @@ if __name__ == '__main__':
             num = 1
 
         if mask_path in test or mask_path in val:
-            # savePith(mask_path, pith, image, 0, pith_path, save_type, False)
+            savePith(mask_path, pith, image, 0, pith_path, save_type, False)
             saveTile(mask_path, other_rings_dis, image, 0, tile_path, save_type, False, thres)
         else:
-            # data = []
-            # for i in range(0, num):
-            #     data.append((mask_path, pith, image, i, pith_path, save_type, True))
+            data = []
+            for i in range(0, num):
+                data.append((mask_path, pith, image, i, pith_path, save_type, True))
 
-            # with Pool(int(multiprocessing.cpu_count())) as pool:
-            #     pool.starmap(savePith, data)
+            with Pool(int(multiprocessing.cpu_count())) as pool:
+                pool.starmap(savePith, data)
 
             data = []
             for i in range(0, num):

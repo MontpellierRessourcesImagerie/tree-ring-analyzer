@@ -16,6 +16,8 @@ def read_images(img_path, label_path):
         img = img.astype(np.float32)  # Convert image to float32 for TensorFlow compatibility
         if len(img.shape) == 2:
             img = img[:, :, None]
+        if img.shape[-1] == 3:
+            img = (0.299 * img[:, :, 0] + 0.587 * img[:, :, 1] + 0.114 * img[:, :, 2])[:, :, None]
         return img
 
 
