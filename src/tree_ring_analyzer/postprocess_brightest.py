@@ -51,9 +51,9 @@ def predict_num_peak(image, dark_point1, dark_point2):
 def plot_half_ring(image, peak1, peak2, light_point, center):
     start_point = np.array([light_point, peak1])
     goal_point = np.array([light_point, peak2])
-    radius = (np.sqrt(np.sum((start_point - center) ** 2)), np.sqrt(np.sum((goal_point - center) ** 2)))
+    radius = (np.sqrt(np.sum((start_point - center) ** 2)) + np.sqrt(np.sum((goal_point - center) ** 2))) / 2
     search_algorithm = AStarSearch(image, start_point=start_point, goal_point=goal_point)
-    search_algorithm.heuristic_function = CircleHeuristicFunction(center=center, radius=radius, height=image.shape[0], width=image.shape[1])
+    search_algorithm.heuristic_function = CircleHeuristicFunction(center=center, radius=radius, image=image)
     # search_algorithm.cost_function = CustomCostFunction()
     brightest_path =search_algorithm.search()
 
@@ -66,24 +66,24 @@ def plot_half_ring(image, peak1, peak2, light_point, center):
 if __name__ == '__main__':
     t0 = time.time()
     thickness = 1
-    folder_name = '/home/khietdang/Documents/khiet/treeRing/transfer/predictions_bigDistance'
+    folder_name = '/home/khietdang/Documents/khiet/treeRing/transfer/predictions_bigDisRingAugGray'
     pith_name = '/home/khietdang/Documents/khiet/treeRing/transfer/predictions_pith'
     input_name = '/home/khietdang/Documents/khiet/treeRing/transfer/input_transfer'
     resize = 5
     # mask_name = '/home/khietdang/Documents/khiet/treeRing/masks'
     # image_list = glob.glob(os.path.join(folder_name, '*.tif'))
-    image_list = [os.path.join(folder_name, '68m_x50_8 µm.tif')]
+    image_list = [os.path.join(folder_name, '23(4)_x50_8 µm.tif')]
     for image_path in image_list:
         print(image_path)
         image_ori = tifffile.imread(image_path)
         height_ori, width_ori = image_ori.shape
         image = cv2.resize(image_ori, (int(width_ori / resize), int(height_ori / resize)))
         height, width = image.shape
-        filter_size = (int(0.0075 * height), int(0.0075 * width))
-        max_value = int(np.max(image) / 2)
-        filter_size = (filter_size[0] if filter_size[0] < max_value else max_value, 
-                       filter_size[1] if filter_size[1] < max_value else max_value)
-        image = median_filter(image, filter_size)
+        # filter_size = (int(0.0075 * height), int(0.0075 * width))
+        # max_value = int(np.max(image) / 2)
+        # filter_size = (filter_size[0] if filter_size[0] < max_value else max_value, 
+        #                filter_size[1] if filter_size[1] < max_value else max_value)
+        # image = median_filter(image, filter_size)
 
         pith_whole = tifffile.imread(os.path.join(pith_name, os.path.basename(image_path)))
         pith_whole[pith_whole >= 0.5] = 1
@@ -117,9 +117,9 @@ if __name__ == '__main__':
             peaks2 = peaks2 + center[1]
             peaks2 = peaks2[peaks2 < 0.95 * width]
             
-        max_height = min(dark_point, image.shape[0] - dark_point, center[1], image.shape[1] - center[1])
-        cone_image = create_cone(image, center, max_height)
-        image[cone_image > max_height - min(center[1] - peaks1[-1], peaks2[0] - center[1]) * 0.9] = 0
+        # max_height = min(dark_point, image.shape[0] - dark_point, center[1], image.shape[1] - center[1])
+        # cone_image = create_cone(image, center, max_height)
+        # image[cone_image > max_height - min(center[1] - peaks1[-1], peaks2[0] - center[1]) * 0.9] = 0
 
         if len(peaks1) < len(peaks2):
             a = copy.deepcopy(peaks1)
@@ -129,7 +129,7 @@ if __name__ == '__main__':
         peaks1_center = np.abs(peaks1 - center[1])[:, None]
         peaks2_center = np.abs(peaks2 - center[1])[None, :]
         diff_pp = np.abs(peaks1_center - peaks2_center)
-        max_value = np.max(diff_pp)
+        max_value = np.max(diff_pp) + 1
 
         num_pair = min(len(peaks1), len(peaks2))
         data = []

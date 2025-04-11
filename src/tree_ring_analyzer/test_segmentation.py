@@ -9,14 +9,14 @@ import cv2
 
 
 if __name__ == '__main__':
-    input_folder = '/home/khietdang/Documents/khiet/treeRing/input'
+    input_folder = '/home/khietdang/Documents/khiet/treeRing/transfer/input_transfer'
     # mask_folder = '/home/khietdang/Documents/khiet/treeRing/masks'
-    output_folder = '/home/khietdang/Documents/khiet/treeRing/output'
-    checkpoint_ring_path = '/home/khietdang/Documents/khiet/tree-ring-analyzer/models/bigDistance.keras'
+    output_folder = '/home/khietdang/Documents/khiet/treeRing/transfer/output_transfer'
+    checkpoint_ring_path = '/home/khietdang/Documents/khiet/tree-ring-analyzer/models/bigDisRingAugGray.keras'
     checkpoint_pith_path = '/home/khietdang/Documents/khiet/tree-ring-analyzer/models/pith.keras'
 
-    # image_list = glob.glob(os.path.join(input_folder, '*.tif'))
-    image_list = [os.path.join(input_folder, '4 E 2 t_8µm_x50.tif')]
+    image_list = glob.glob(os.path.join(input_folder, '*.tif'))
+    # image_list = [os.path.join(input_folder, '39(6)_x50_8 µm.tif')]
     for image_path in image_list:
         print(image_path)
         image = tifffile.imread(image_path)
@@ -30,7 +30,7 @@ if __name__ == '__main__':
         treeRingSegment.segmentImage(modelRing, modelPith, image)
         
         result = treeRingSegment.maskRings
-        # image[result == 255] = 0
+        image[result == 255] = 0
 
         tifffile.imwrite(os.path.join(output_folder, os.path.basename(image_path)), result)
 

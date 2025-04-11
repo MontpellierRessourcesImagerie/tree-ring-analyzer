@@ -1,5 +1,6 @@
 from brightest_path_lib.algorithm import AStarSearch
 from brightest_path_lib.heuristic import Heuristic
+from brightest_path_lib.cost import Cost
 import copy
 import cv2
 import multiprocessing
@@ -10,18 +11,50 @@ from scipy.signal import find_peaks, savgol_filter
 from skimage.filters import threshold_otsu
 from tree_ring_analyzer.tiles.tiler import ImageTiler2D
 import matplotlib.pyplot as plt
-from scipy.ndimage import distance_transform_edt, binary_dilation
+from scipy.ndimage import distance_transform_edt, binary_dilation, binary_erosion
 from skimage.morphology import skeletonize
 
 
 
+class CustomCostFunction(Cost):
+    def __init__(self, min_intensity, max_intensity):
+        super().__init__()
+        if min_intensity is None or max_intensity is None:
+            raise TypeError
+        if min_intensity > max_intensity:
+            raise ValueError
+        self.min_intensity = min_intensity
+        self.max_intensity = max_intensity
+        self.RECIPROCAL_MIN = float(1E-6)
+        self.RECIPROCAL_MAX = 255.0
+        self._min_step_cost = 1.0 / self.RECIPROCAL_MAX
+
+
+    def cost_of_moving_to(self, intensity_at_new_point):
+        if intensity_at_new_point > self.max_intensity:
+            raise ValueError
+
+        intensity_at_new_point = self.RECIPROCAL_MAX * (intensity_at_new_point - self.min_intensity) / (self.max_intensity - self.min_intensity)
+
+        if intensity_at_new_point < self.RECIPROCAL_MIN:
+            intensity_at_new_point = self.RECIPROCAL_MIN
+        
+        return  1 / (intensity_at_new_point ** 3)
+    
+    def minimum_step_cost(self):
+        return self._min_step_cost
+    
+
+
 class CircleHeuristicFunction(Heuristic):
-    def __init__(self, image, center, radius):
-        self.image = image
-        self.center = center
+    def __init__(self, image, center, startPoint, radius):
         self.radius = radius
+        self.image = image
+
+        self.center = center
         self.height = image.shape[0]
         self.width = image.shape[1]
+        self.startPoint = startPoint
 
 
     def estimate_cost_to_goal(self, current_point, goal_point):
@@ -33,11 +66,10 @@ class CircleHeuristicFunction(Heuristic):
         diff0 = np.sqrt(np.sum((current_point - goal_point) ** 2))
         diff1 = np.abs(self.radius - np.sqrt(np.sum((self.center - current_point) ** 2)))
         
+        # cost = diff1 ** 2 + diff0 + (diff1 ** 2) * np.sum((current_point - goal_point) * (current_point - self.startPoint))
         cost = diff0 + diff1 ** 2
-        if 0.05 * self.height < current_point[0] < 0.95 * self.height and 0.05 * self.width < current_point[1] < 0.95 * self.width:
-            return cost
-        else:
-            return cost * 1000
+
+        return cost
     
 
 
@@ -65,6 +97,7 @@ class TreeRingSegmentation:
         self.shape = image.shape[0], image.shape[1]
 
         ## Tiling
+        image = (0.299 * image[:, :, 0] + 0.587 * image[:, :, 1] + 0.114 * image[:, :, 2])[:, :, None]
         tiles_manager = ImageTiler2D(self.patchSize, self.overlap, self.shape)
         tiles = tiles_manager.image_to_tiles(image, use_normalize=True)
         tiles = np.array(tiles)
@@ -117,25 +150,22 @@ class TreeRingSegmentation:
         self.center = (int(np.mean(contours[chosen_contour][:, :, 1]) / self.resize), 
                        int(np.mean(contours[chosen_contour][:, :, 0]) / self.resize))
         
+    
+    def createMask(self, image):
+        imageBinary = (0.299 * image[:, :, 0] + 0.587 * image[:, :, 1] + 0.114 * image[:, :, 2])
+        ret = threshold_otsu(imageBinary)
+        imageBinary[imageBinary < ret] = 0
+        imageBinary[imageBinary >= ret] = 1
+        imageBinary = 1 - imageBinary
 
-    @staticmethod
-    def create_cone(image, center, max_height):
-        h, w = image.shape
-        x0, y0 = center
-        
-        # Generate coordinate grids
-        x = np.arange(w)
-        y = np.arange(h)
-        Y, X = np.meshgrid(x, y)
-        
-        # Compute the Euclidean distance from the given point
-        D = np.sqrt((X - x0) ** 2 + (Y - y0) ** 2)
-        
-        # Compute cone height map
-        D = max_height - D
-        D[D < 0] = 0  # Clip negative values
-        
-        return D.astype(np.int32)
+        contours, _ = cv2.findContours(imageBinary.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        chose_contour = np.argmax(np.array([len(contour) for contour in contours]))
+
+        mask = np.zeros_like(imageBinary)
+        cv2.drawContours(mask, [contours[chose_contour]], 0, 1, -1)
+        mask = binary_erosion(mask, iterations=self.iterations)
+
+        return mask
 
     
     def findEndPoints(self):
@@ -152,23 +182,33 @@ class TreeRingSegmentation:
 
         ## Find start and goal points
         light_part = np.mean(prediction_ring[dark_point - int(0.05 * height):dark_point + int(0.05 * height), :], axis=0)
-        ret = threshold_otsu(light_part[int(0.05 * width):self.center[1]])
+        ret = threshold_otsu(light_part)
         peaks1, _ = find_peaks(light_part[:self.center[1]], height=ret, distance=0.05 * width)
-        peaks1 = peaks1[peaks1 > 0.05 * width]
+        if len(peaks1) <= 1:
+            peaks1, _ = find_peaks(light_part[:self.center[1]], height=threshold_otsu(light_part[:self.center[1]]), 
+                                   distance=0.05 * width)
 
-        ret = threshold_otsu(light_part[self.center[1]:int(0.95 * width)])
         peaks2, _ = find_peaks(light_part[self.center[1]:], height=ret, distance=0.05 * width)
         peaks2 = peaks2 + self.center[1]
-        peaks2 = peaks2[peaks2 < 0.95 * width]
-
-        max_height = min(dark_point, prediction_ring.shape[0] - dark_point, self.center[1], prediction_ring.shape[1] - self.center[1])
-        cone_image = self.create_cone(prediction_ring, self.center, max_height)
-        prediction_ring[cone_image > max_height - min(self.center[1] - peaks1[-1], peaks2[0] - self.center[1]) * 0.9] = 0
+        if len(peaks2) <= 1:
+            peaks2, _ = find_peaks(light_part[self.center[1]:], height=threshold_otsu(light_part[self.center[1]:]), 
+                                   distance=0.05 * width)
+            peaks2 = peaks2 + self.center[1]
 
         if len(peaks1) < len(peaks2):
             a = copy.deepcopy(peaks1)
             peaks1 = copy.deepcopy(peaks2)
             peaks2 = copy.deepcopy(a)
+
+        # plt.figure(figsize=(10, 10))
+        # plt.imshow(prediction_ring)
+        # for i in range(0, len(peaks1), 1):
+        #     plt.plot(peaks1[i], dark_point, 'ro')
+        # for i in range(0, len(peaks2), 1):
+        #     plt.plot(peaks2[i], dark_point, 'bo')
+        # plt.show()
+        # plt.close()
+        # raise ValueError
 
         ## Catch up the pairs of start points and goal points
         peaks1_center = np.abs(peaks1 - self.center[1])[:, None]
@@ -219,7 +259,8 @@ class TreeRingSegmentation:
         goal_point = np.array([light_point, peak2])
         radius = (np.sqrt(np.sum((start_point - center) ** 2)) + np.sqrt(np.sum((goal_point - center) ** 2))) / 2
         search_algorithm = AStarSearch(image, start_point=start_point, goal_point=goal_point)
-        search_algorithm.heuristic_function = CircleHeuristicFunction(image=image, center=center, radius=radius)
+        search_algorithm.heuristic_function = CircleHeuristicFunction(image=image, center=center, startPoint=start_point, radius=radius)
+        search_algorithm.cost_function = CustomCostFunction(min_intensity=np.min(image), max_intensity=np.max(image))
         brightest_path = search_algorithm.search()
 
         result = np.array(search_algorithm.result)[:, 1]
@@ -252,7 +293,10 @@ class TreeRingSegmentation:
 
 
     def segmentImage(self, modelRing, modelPith, image):
-        self.predictionRing = self.predictRing(modelRing, image)
+        mask = self.createMask(image)
+
+        predictionRing = self.predictRing(modelRing, image)
+        self.predictionRing = predictionRing * mask
 
         self.predictPith(modelPith, image)
         self.postprocessPith()
