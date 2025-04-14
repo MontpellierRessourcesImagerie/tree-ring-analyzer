@@ -16,7 +16,7 @@ if __name__ == '__main__':
     checkpoint_pith_path = '/home/khietdang/Documents/khiet/tree-ring-analyzer/models/pith.keras'
 
     image_list = glob.glob(os.path.join(input_folder, '*.tif'))
-    # image_list = [os.path.join(input_folder, '39(6)_x50_8 µm.tif')]
+    # image_list = [os.path.join(input_folder, '68t_x50_8 µm.tif')]
     for image_path in image_list:
         print(image_path)
         image = tifffile.imread(image_path)
@@ -32,7 +32,7 @@ if __name__ == '__main__':
         result = treeRingSegment.maskRings
         image[result == 255] = 0
 
-        tifffile.imwrite(os.path.join(output_folder, os.path.basename(image_path)), result)
+        tifffile.imwrite(os.path.join(output_folder, os.path.basename(image_path)), image)
 
         # hausdorff, mse = treeRingSegment.evaluate(mask)
         # print('\tHausdorff Distance:', hausdorff)
