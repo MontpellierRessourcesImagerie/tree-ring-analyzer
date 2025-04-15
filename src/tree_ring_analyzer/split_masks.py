@@ -23,16 +23,16 @@ if __name__ == '__main__':
     train, test = train_test_split(masks_list, test_size=0.2, shuffle=True, random_state=42)
     train, val = train_test_split(train, test_size=0.2, shuffle=True, random_state=42)
 
-    if not os.path.exists(big_dis_path):
-        os.makedirs(big_dis_path)
+    # if not os.path.exists(big_dis_path):
+    #     os.makedirs(big_dis_path)
 
-    if os.path.exists(pith_path):
-        shutil.rmtree(pith_path)
-    createFolder(pith_path)
+    # if os.path.exists(pith_path):
+    #     shutil.rmtree(pith_path)
+    # createFolder(pith_path)
 
-    if os.path.exists(tile_path):
-        shutil.rmtree(tile_path)
-    createFolder(tile_path)
+    # if os.path.exists(tile_path):
+    #     shutil.rmtree(tile_path)
+    # createFolder(tile_path)
 
     for mask_path in masks_list:
         print(mask_path)
@@ -58,7 +58,7 @@ if __name__ == '__main__':
 
         if mask_path in test or mask_path in val:
             savePith(mask_path, pith, image, 0, pith_path, save_type, False)
-            saveTile(mask_path, other_rings_dis, image, 0, tile_path, save_type, False, thres)
+            # saveTile(mask_path, other_rings_dis, image, 0, tile_path, save_type, False, thres)
         else:
             data = []
             for i in range(0, num):
@@ -67,10 +67,10 @@ if __name__ == '__main__':
             with Pool(int(multiprocessing.cpu_count())) as pool:
                 pool.starmap(savePith, data)
 
-            data = []
-            for i in range(0, num):
-                data.append((mask_path, other_rings_dis, image, i, tile_path, save_type, True, thres))
+            # data = []
+            # for i in range(0, num):
+            #     data.append((mask_path, other_rings_dis, image, i, tile_path, save_type, True, thres))
 
-            with Pool(int(multiprocessing.cpu_count() * 0.5)) as pool:
-                pool.starmap(saveTile, data)
+            # with Pool(int(multiprocessing.cpu_count() * 0.5)) as pool:
+            #     pool.starmap(saveTile, data)
 

@@ -15,8 +15,8 @@ if __name__ == '__main__':
     checkpoint_ring_path = '/home/khietdang/Documents/khiet/tree-ring-analyzer/models/bigDisRingAugGray.keras'
     checkpoint_pith_path = '/home/khietdang/Documents/khiet/tree-ring-analyzer/models/pith.keras'
 
-    image_list = glob.glob(os.path.join(input_folder, '*.tif'))
-    # image_list = [os.path.join(input_folder, '68t_x50_8 µm.tif')]
+    # image_list = glob.glob(os.path.join(input_folder, '*.tif'))
+    image_list = [os.path.join(input_folder, '39(6)_x50_8 µm.tif')]
     for image_path in image_list:
         print(image_path)
         image = tifffile.imread(image_path)
