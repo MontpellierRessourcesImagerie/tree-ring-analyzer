@@ -56,7 +56,7 @@ def savePith(mask_path, pith, image, i, output_path, save_type, augment=True):
         pith_crop[pith_crop != 0] = 255
 
         tifffile.imwrite(os.path.join(output_path, save_type, 'x', os.path.basename(mask_path)[:-4] + f'_aug{i}.tif'),
-                         img_crop / 255)
+                         (img_crop - np.min(img_crop)) / (np.max(img_crop - np.min(img_crop))))
         tifffile.imwrite(os.path.join(output_path, save_type, 'y', os.path.basename(mask_path)[:-4] + f'_aug{i}.tif'),
                          pith_crop.astype(np.uint8))
         

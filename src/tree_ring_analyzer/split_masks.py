@@ -48,7 +48,7 @@ if __name__ == '__main__':
 
         if mask_path in train:
             save_type = 'train'
-            num = 300
+            num = 500
         elif mask_path in test:
             save_type = 'test'
             num = 1

@@ -6,21 +6,25 @@ import matplotlib.pyplot as plt
 import glob
 import os
 import numpy as np
+import cv2
 
 
 
 if __name__ == '__main__':
-    input_folder = '/home/khietdang/Documents/khiet/treeRing/input'
+    input_folder = '/home/khietdang/Documents/khiet/treeRing/Luidmila/control'
     # mask_folder = '/home/khietdang/Documents/khiet/treeRing/masks'
-    output_folder = '/home/khietdang/Documents/khiet/treeRing/output'
+    output_folder = '/home/khietdang/Documents/khiet/treeRing/Luidmila/control_output'
     checkpoint_ring_path = '/home/khietdang/Documents/khiet/tree-ring-analyzer/models/bigDisRingAugGray.keras'
     checkpoint_pith_path = '/home/khietdang/Documents/khiet/tree-ring-analyzer/models/pithGray.keras'
 
-    image_list = glob.glob(os.path.join(input_folder, '*.tif'))
-    # image_list = [os.path.join(input_folder, '12 t_8µm_x50.tif')]
+    image_list = glob.glob(os.path.join(input_folder, '*.tif')) + glob.glob(os.path.join(input_folder, '*.jpg'))
+    # image_list = [os.path.join(input_folder, '66b_x50_8 µm.tif')]
     for image_path in image_list:
         print(image_path)
-        image = tifffile.imread(image_path)
+        if image_path.endswith('.tif'):
+            image = tifffile.imread(image_path)
+        elif image_path.endswith('.jpg'):
+            image = cv2.imread(image_path)
         # mask = tifffile.imread(os.path.join(mask_folder, os.path.basename(image_path)))
 
         image = (0.299 * image[:, :, 0] + 0.587 * image[:, :, 1] + 0.114 * image[:, :, 2])[:, :, None]

@@ -16,16 +16,18 @@ from skimage.morphology import skeletonize
 
 
 class CircleHeuristicFunction(Heuristic):
-    def __init__(self, image, center, startPoint, radius, thres):
+    def __init__(self, image, center, startPoint, radius, thres, length):
         self.radius = radius
         self.image = image
 
         self.center = center
         self.height = image.shape[0]
         self.width = image.shape[1]
+        self.length = length
         self.maxValue = np.max(image)
         self.startPoint = startPoint
         self.thres = thres
+        
 
 
     def estimate_cost_to_goal(self, current_point, goal_point):
@@ -34,27 +36,27 @@ class CircleHeuristicFunction(Heuristic):
         if (len(current_point) == 0 or len(goal_point) == 0) or (len(current_point) != len(goal_point)):
             raise ValueError
 
-        diff0 = np.abs(current_point[1] - goal_point[1])
+        diff0 = np.sqrt(np.sum((current_point[1] - goal_point[1]) ** 2))
 
         currentRadius = (diff0 / (self.radius[0] + self.radius[1])) * (self.radius[0] - self.radius[1]) + self.radius[1]
-        # currentThres = (diff0 / (self.radius[0] + self.radius[1])) * (self.thres[0] - self.thres[1]) + self.thres[1]
+        currentThres = (diff0 / (self.radius[0] + self.radius[1])) * (self.thres[0] - self.thres[1]) + self.thres[1]
 
         cosTheta = np.abs(current_point[1] - self.center[1]) / np.sqrt(np.sum((current_point - self.center) ** 2))
         currentRadiusX = currentRadius * cosTheta
-        currentRadiusY = currentRadius * np.sqrt(1 - cosTheta ** 2) * (self.height / self.width)
+        currentRadiusY = currentRadius * np.sqrt(1 - cosTheta ** 2) * (self.length[0] / self.length[1])
         currentRadius = np.sqrt(currentRadiusX ** 2 + currentRadiusY ** 2)
         
-        # currentThresX = currentThres * cosTheta
-        # currentThresY = currentThres * np.sqrt(1 - cosTheta ** 2) * (self.height / self.width)
-        # currentThres = np.sqrt(currentThresX ** 2 + currentThresY ** 2)
+        currentThresX = currentThres * cosTheta
+        currentThresY = currentThres * np.sqrt(1 - cosTheta ** 2) * (self.length[0] / self.length[1])
+        currentThres = np.sqrt(currentThresX ** 2 + currentThresY ** 2)
 
         diff1 = np.abs(currentRadius - np.sqrt(np.sum((self.center - current_point) ** 2)))
 
-        if diff1 > 0.2 * currentRadius and self.image[current_point[0], current_point[1]] < self.maxValue * 0.2:
+        if diff1 > 0.2 * currentRadius and diff1 > 0.4 * currentThres and self.image[current_point[0], current_point[1]] < 1:
             diff2 = np.abs(np.sum((current_point - goal_point) * (current_point - self.startPoint)))
-            cost = diff0 + diff1 * 2 + diff2 ** 2
+            cost = diff0 + diff1 ** 2 + diff2 ** 2
         else:
-            cost = diff0
+            cost = diff0 + diff1 ** 2
 
         return cost
     
@@ -117,18 +119,18 @@ class TreeRingSegmentation:
         c2x = np.sum(prediction_crop_pith[:, -1, :, :]) >= thres
 
         stop1, stop2 = False, False
-        if c1x:
+        if c1x and not c2x:
             shiftX = shiftX - int(0.1 * crop_size)
-        elif c2x:
+        elif c2x and not c1x:
             shiftX = shiftX + int(0.1 * crop_size)
         else:
             stop1 = True
 
         c1y = np.sum(prediction_crop_pith[:, :, 0, :]) >= thres
         c2y = np.sum(prediction_crop_pith[:, :, -1, :]) >= thres
-        if c1y:
+        if c1y and not c2y:
             shiftY = shiftY - int(0.1 * crop_size)
-        elif c2y:
+        elif c2y and not c1y:
             shiftY = shiftY + int(0.1 * crop_size)
         else:
             stop2 = True
@@ -148,6 +150,7 @@ class TreeRingSegmentation:
         chose_indices = (0.2 * image.shape[0] < ring_indices[0]) & (ring_indices[0] < 0.8 * image.shape[0]) \
             & (0.2 * image.shape[1] < ring_indices[1]) & (ring_indices[1] < 0.8 * image.shape[1])
         center = int(np.mean(ring_indices[0][chose_indices])), int(np.mean(ring_indices[1][chose_indices]))
+        self.center = (int(center[0] / self.resize), int(center[1] / self.resize))
 
         crop_size = int(0.1 * max(self.shape[1], self.shape[0])) * 2 
         
@@ -162,13 +165,14 @@ class TreeRingSegmentation:
 
     def postprocessPith(self):
         one_indice = np.where(self.pith == 1)
-        center = int(np.mean(one_indice[0])), int(np.mean(one_indice[1]))
-        contours, _ = cv2.findContours(self.pith.astype(np.uint8), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-        chosen_contour = np.argmax([cv2.pointPolygonTest(contour, [center[1], center[0]], True) for contour in contours])
-        
-        self.pithContour = contours[chosen_contour]
-        self.center = (int(np.mean(contours[chosen_contour][:, :, 1]) / self.resize), 
-                       int(np.mean(contours[chosen_contour][:, :, 0]) / self.resize))
+        if len(one_indice[0]):
+            center = int(np.mean(one_indice[0])), int(np.mean(one_indice[1]))
+            contours, _ = cv2.findContours(self.pith.astype(np.uint8), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+            chosen_contour = np.argmax([cv2.pointPolygonTest(contour, [center[1], center[0]], True) for contour in contours])
+            
+            self.pithContour = contours[chosen_contour]
+            self.center = (int(np.mean(contours[chosen_contour][:, :, 1]) / self.resize), 
+                        int(np.mean(contours[chosen_contour][:, :, 0]) / self.resize))
         
     
     def createMask(self, image):
@@ -255,6 +259,9 @@ class TreeRingSegmentation:
         image_lower[dark_point:] = 1
         image_lower = image_lower * prediction_ring
 
+        lengthUpper = (dark_point - np.sum(1 - self.outerMask[:dark_point, self.center[1]]), minLength)
+        lengthLower = (height - dark_point - np.sum(1 - self.outerMask[dark_point:, self.center[1]]), minLength)
+
         for k in range(0, num_pair, 1):
             min_value = np.min(diff_pp)
             if min_value == max_value:
@@ -265,9 +272,14 @@ class TreeRingSegmentation:
 
             dis1 = np.abs(peaks1[j] - peaks1)
             dis2 = np.abs(peaks2[i] - peaks2)
-            thres = (np.min(dis1[dis1 != 0]), np.min(dis2[dis2 != 0]))
-            data.append((image_upper, peaks1[j], peaks2[i], dark_point - 1, np.array(self.center), self.resize, thres))
-            data.append((image_lower, peaks1[j], peaks2[i], dark_point, np.array(self.center), self.resize, thres))
+
+            dis1 = dis1[dis1 != 0]
+            dis2 = dis2[dis2 != 0]
+            
+            thres = (np.min(dis1) if len(dis1) else np.nan, np.min(dis2) if len(dis2) else np.nan)
+
+            data.append((image_upper, peaks1[j], peaks2[i], dark_point - 1, np.array(self.center), self.resize, thres, lengthUpper))
+            data.append((image_lower, peaks1[j], peaks2[i], dark_point, np.array(self.center), self.resize, thres, lengthLower))
             remains.remove(j)
             diff_pp[j, :] = max_value
             diff_pp[:, i] = max_value
@@ -278,8 +290,8 @@ class TreeRingSegmentation:
                 dis1 = np.abs(peaks1[j] - peaks1)
                 dis2 = np.abs(newPoint - peaks2)
                 thres = (np.min(dis1[dis1 != 0]), np.min(dis2[dis2 != 0]))
-                data.append((image_upper, peaks1[j], newPoint, dark_point - 1, np.array(self.center), self.resize, thres))
-                data.append((image_lower, peaks1[j], newPoint, dark_point, np.array(self.center), self.resize, thres))
+                data.append((image_upper, peaks1[j], newPoint, dark_point - 1, np.array(self.center), self.resize, thres, lengthUpper))
+                data.append((image_lower, peaks1[j], newPoint, dark_point, np.array(self.center), self.resize, thres, lengthLower))
         
         return data
     
@@ -291,12 +303,13 @@ class TreeRingSegmentation:
 
 
     @staticmethod
-    def traceHalfRing(image, peak1, peak2, light_point, center, resize, thres):
+    def traceHalfRing(image, peak1, peak2, light_point, center, resize, thres, length):
         start_point = np.array([light_point, peak1])
         goal_point = np.array([light_point, peak2])
         radius = (np.abs(start_point[1] - center[1]), np.abs(goal_point[1] - center[1]))
         search_algorithm = AStarSearch(image, start_point=start_point, goal_point=goal_point)
-        search_algorithm.heuristic_function = CircleHeuristicFunction(image=image, center=center, startPoint=start_point, radius=radius, thres=thres)
+        search_algorithm.heuristic_function = CircleHeuristicFunction(image=image, center=center, startPoint=start_point, 
+                                                                      radius=radius, thres=thres, length=length)
 
         brightest_path = search_algorithm.search()
 
@@ -311,8 +324,9 @@ class TreeRingSegmentation:
 
     def createMaskOfRings(self, cor):
         image_white = np.zeros((self.shape[0], self.shape[1]), dtype=np.uint8)
-        cv2.drawContours(image_white, [np.array(self.pithContour)], 0, 1, self.thickness)
-        self.predictedRings.append(np.array(self.pithContour))
+        if self.pithContour is not None:
+            cv2.drawContours(image_white, [np.array(self.pithContour)], 0, 1, self.thickness)
+            self.predictedRings.append(np.array(self.pithContour))
 
         meanIntensity = np.array([np.mean(self.predictionRing[cor[i][:, 0, 1], cor[i][:, 0, 0]]) + 
                                   np.mean(self.predictionRing[cor[i + 1][:, 0, 1], cor[i + 1][:, 0, 0]]) 
