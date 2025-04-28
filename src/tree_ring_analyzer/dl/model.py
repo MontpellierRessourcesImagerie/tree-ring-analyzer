@@ -3,11 +3,11 @@ from tensorflow.keras import layers
 
 
 
-class AttentionUnet:
+class Unet:
 
 
     def __init__(self, input_size, filter_num, n_labels, stack_num_down=2, stack_num_up=2,
-                 activation='relu', output_activation='softmax', name='AttentionUnet'):
+                 activation='relu', output_activation='softmax', attention=True, name='Unet'):
         self.model = None
         self.input_size = input_size
         self.filter_num = filter_num
@@ -17,6 +17,7 @@ class AttentionUnet:
         self.activation = activation
         self.output_activation = output_activation
         self.name = name
+        self.attention = attention
 
         self.p = []
         self.f = []
@@ -55,9 +56,14 @@ class AttentionUnet:
     def upsample_block(self, x, conv_features, n_filters):
         # upsample
         x = layers.Conv2DTranspose(n_filters, 3, 2, padding="same")(x)
-        s = self.attention_gate(x, conv_features, n_filters)
-        # concatenate
-        x = layers.concatenate([x, s])
+        if self.attention:
+            s = self.attention_gate(x, conv_features, n_filters)
+            # concatenate
+            x = layers.concatenate([x, s])
+        else:
+            # concatenate
+            x = layers.concatenate([x, conv_features])
+        
         # dropout
         x = layers.Dropout(0.3)(x)
         # Conv2D twice with ReLU activation

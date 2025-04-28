@@ -26,8 +26,10 @@ def read_images(img_path, label_path):
 
     seg = tf.py_function(func=_load_image, inp=[label_path], Tout=tf.float32)  # Use tf.py_function
     seg.set_shape([None, None, None])  # Set output shape for TensorFlow dataset compatibility
+    if tf.reduce_max(seg) == 255:
+        seg = seg / 255
 
-    return img, (seg / tf.reduce_max(seg))
+    return img, seg
 
 
 

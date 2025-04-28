@@ -12,13 +12,13 @@ import numpy as np
 
 
 if __name__ == '__main__':
-    input_path = '/home/khietdang/Documents/khiet/treeRing/input'
-    masks_path = '/home/khietdang/Documents/khiet/treeRing/masks'
-    big_dis_path = '/home/khietdang/Documents/khiet/treeRing/big_dis_otherrings'
-    pith_path = '/home/khietdang/Documents/khiet/treeRing/pith'
-    tile_path = '/home/khietdang/Documents/khiet/treeRing/tile_big_dis_otherrings'
+    input_path = '/home/khietdang/Documents/khiet/INBD/dataset/EH/inputimages'
+    masks_path = '/home/khietdang/Documents/khiet/INBD/dataset/EH/rings'
+    big_dis_path = '/home/khietdang/Documents/khiet/INBD/dataset/EH/big_dis_otherrings'
+    pith_path = '/home/khietdang/Documents/khiet/INBD/dataset/EH/pith'
+    tile_path = '/home/khietdang/Documents/khiet/INBD/dataset/EH/tile_big_dis_otherrings'
 
-    masks_list = glob.glob(os.path.join(masks_path, '*.tif'))
+    masks_list = glob.glob(os.path.join(masks_path, '*.tif')) + glob.glob(os.path.join(masks_path, '*.jpg'))
 
     train, test = train_test_split(masks_list, test_size=0.2, shuffle=True, random_state=42)
     train, val = train_test_split(train, test_size=0.2, shuffle=True, random_state=42)
@@ -26,9 +26,9 @@ if __name__ == '__main__':
     # if not os.path.exists(big_dis_path):
     #     os.makedirs(big_dis_path)
 
-    # if os.path.exists(pith_path):
-    #     shutil.rmtree(pith_path)
-    # createFolder(pith_path)
+    if os.path.exists(pith_path):
+        shutil.rmtree(pith_path)
+    createFolder(pith_path)
 
     # if os.path.exists(tile_path):
     #     shutil.rmtree(tile_path)
@@ -36,15 +36,19 @@ if __name__ == '__main__':
 
     for mask_path in masks_list:
         print(mask_path)
-        mask = tifffile.imread(mask_path)
-        image = tifffile.imread(os.path.join(input_path, os.path.basename(mask_path)))
+        if mask_path.endswith('.tif'):
+            mask = tifffile.imread(mask_path)
+            image = tifffile.imread(os.path.join(input_path, os.path.basename(mask_path)))
+        else:
+            mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
+            image = cv2.imread(os.path.join(input_path, os.path.basename(mask_path)))
 
         mask[mask == 255] = 1
 
         pith, other_rings_dis = splitRingsAndPith(mask)
         thres = np.max(other_rings_dis)
 
-        tifffile.imwrite(os.path.join(big_dis_path, os.path.basename(mask_path)), other_rings_dis)
+        # tifffile.imwrite(os.path.join(big_dis_path, os.path.basename(mask_path)), other_rings_dis)
 
         if mask_path in train:
             save_type = 'train'

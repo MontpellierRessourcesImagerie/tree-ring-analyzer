@@ -11,14 +11,15 @@ import cv2
 
 
 if __name__ == '__main__':
-    input_folder = '/home/khietdang/Documents/khiet/treeRing/Luidmila/control'
+    input_folder = '/home/khietdang/Documents/khiet/treeRing/Luidmila/jpg'
     # mask_folder = '/home/khietdang/Documents/khiet/treeRing/masks'
-    output_folder = '/home/khietdang/Documents/khiet/treeRing/Luidmila/control_output'
-    checkpoint_ring_path = '/home/khietdang/Documents/khiet/tree-ring-analyzer/models/bigDisRingAugGray.keras'
-    checkpoint_pith_path = '/home/khietdang/Documents/khiet/tree-ring-analyzer/models/pithGray.keras'
+    output_folder = '/home/khietdang/Documents/khiet/treeRing/Luidmila/jpg_output'
+    checkpoint_ring_path = '/home/khietdang/Documents/khiet/tree-ring-analyzer/models/bigDisRingAugGrayNormal.keras'
+    checkpoint_pith_path = '/home/khietdang/Documents/khiet/tree-ring-analyzer/models/pithGrayNormal.keras'
+    checkpoint_postprocess_path = '/home/khietdang/Documents/khiet/tree-ring-analyzer/models/thirdModel.keras'
 
     image_list = glob.glob(os.path.join(input_folder, '*.tif')) + glob.glob(os.path.join(input_folder, '*.jpg'))
-    # image_list = [os.path.join(input_folder, '66b_x50_8 µm.tif')]
+    # image_list = [os.path.join(input_folder, '16(2)_x50_8 µm.tif')]
     for image_path in image_list:
         print(image_path)
         if image_path.endswith('.tif'):
@@ -32,6 +33,8 @@ if __name__ == '__main__':
         modelRing = tf.keras.models.load_model(checkpoint_ring_path)
 
         modelPith = tf.keras.models.load_model(checkpoint_pith_path, custom_objects={'bcl': bce_dice_loss(bce_coef=0.3)})
+
+        # modelPostprocess = tf.keras.models.load_model(checkpoint_postprocess_path)
 
         treeRingSegment = TreeRingSegmentation(resize=5)
         treeRingSegment.segmentImage(modelRing, modelPith, image)
