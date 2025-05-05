@@ -27,7 +27,7 @@ def augmentImages(img, mask):
 
 
 
-def savePith(mask_path, pith, image, i, output_path, save_type, augment=True):
+def savePithWhole(mask_path, pith, image, i, output_path, save_type, augment=True):
     pith_aug = copy.deepcopy(pith)
     img_aug = copy.deepcopy(image)
     if augment:
@@ -40,6 +40,39 @@ def savePith(mask_path, pith, image, i, output_path, save_type, augment=True):
 
         tifffile.imwrite(os.path.join(output_path, save_type, 'x', os.path.basename(mask_path)[:-4] + f'_aug{i}.tif'),
                          img_crop / 255)
+        tifffile.imwrite(os.path.join(output_path, save_type, 'y', os.path.basename(mask_path)[:-4] + f'_aug{i}.tif'),
+                         pith_crop.astype(np.uint8))
+        
+
+
+def savePith(mask_path, pith, image, i, output_path, save_type, augment=True):
+    crop_size = 1024
+    pith_aug = copy.deepcopy(pith)
+    img_aug = copy.deepcopy(image)
+ 
+    if augment:
+        img_aug, pith_aug = augmentImages(img_aug, pith_aug)
+        one_indices = np.where(pith_aug == 1)
+        center = np.mean(one_indices[0]), np.mean(one_indices[1])
+        xStart = int(center[0] - crop_size / 2) + np.random.randint(-int(0.375 * crop_size), int(0.375 * crop_size))
+        yStart = int(center[1] - crop_size / 2) + np.random.randint(-int(0.375 * crop_size), int(0.375 * crop_size))
+
+    else:
+        one_indices = np.where(pith_aug == 1)
+        center = np.mean(one_indices[0]), np.mean(one_indices[1])
+        xStart = int(center[0] - crop_size / 2)
+        yStart = int(center[1] - crop_size / 2)
+ 
+    pith_crop = pith_aug[xStart:xStart + crop_size, yStart:yStart + crop_size]
+ 
+    if np.sum(pith_crop) != 0:
+        img_crop = img_aug[xStart:xStart + crop_size, yStart:yStart + crop_size]
+        # pith_crop = cv2.resize(pith_crop.astype(np.uint8), (1024, 1024))[:, :, None]
+        # img_crop = cv2.resize(img_crop.astype(np.uint8), (1024, 1024))
+ 
+        tifffile.imwrite(os.path.join(output_path, save_type, 'x', os.path.basename(mask_path)[:-4] + f'_aug{i}.tif'),
+                         img_crop / 255)
+ 
         tifffile.imwrite(os.path.join(output_path, save_type, 'y', os.path.basename(mask_path)[:-4] + f'_aug{i}.tif'),
                          pith_crop.astype(np.uint8))
         

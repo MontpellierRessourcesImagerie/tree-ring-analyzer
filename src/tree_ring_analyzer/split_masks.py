@@ -12,11 +12,11 @@ import numpy as np
 
 
 if __name__ == '__main__':
-    input_path = '/home/khietdang/Documents/khiet/INBD/dataset/EH/inputimages'
-    masks_path = '/home/khietdang/Documents/khiet/INBD/dataset/EH/rings'
-    big_dis_path = '/home/khietdang/Documents/khiet/INBD/dataset/EH/big_dis_otherrings'
-    pith_path = '/home/khietdang/Documents/khiet/INBD/dataset/EH/pith'
-    tile_path = '/home/khietdang/Documents/khiet/INBD/dataset/EH/tile_big_dis_otherrings'
+    input_path = '/home/khietdang/Documents/khiet/treeRing/input'
+    masks_path = '/home/khietdang/Documents/khiet/treeRing/masks'
+    big_dis_path = '/home/khietdang/Documents/khiet/treeRing/big_dis_otherrings'
+    pith_path = '/home/khietdang/Documents/khiet/treeRing/pith'
+    tile_path = '/home/khietdang/Documents/khiet/treeRing/tile_big_dis_otherrings'
 
     masks_list = glob.glob(os.path.join(masks_path, '*.tif')) + glob.glob(os.path.join(masks_path, '*.jpg'))
 
@@ -52,7 +52,7 @@ if __name__ == '__main__':
 
         if mask_path in train:
             save_type = 'train'
-            num = 500
+            num = 100
         elif mask_path in test:
             save_type = 'test'
             num = 1

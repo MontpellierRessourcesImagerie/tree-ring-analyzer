@@ -88,7 +88,7 @@ class Unet:
         for i in range(0, len(self.filter_num) - 1):
             u = self.upsample_block(self.u[i], self.f[- (i + 1)], self.filter_num[- (i + 2)])
             self.u.append(u)
-
+        
         outputs = layers.Conv2D(self.n_labels, (1,1), padding="same", activation = self.output_activation)(self.u[-1])
 
         # unet model with Keras Functional API

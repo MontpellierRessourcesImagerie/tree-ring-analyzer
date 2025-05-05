@@ -82,8 +82,8 @@ class Training:
                                                    mode='min',  # Minimize the loss
                                                    verbose=1)
         
-        self.batchSize = 64
-        self.bufferSize = 512
+        self.batchSize = 8
+        self.bufferSize = 256
         self.learningRate = 0.001
         
         self._createDataset()
