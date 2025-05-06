@@ -46,7 +46,7 @@ def savePithWhole(mask_path, pith, image, i, output_path, save_type, augment=Tru
 
 
 def savePith(mask_path, pith, image, i, output_path, save_type, augment=True):
-    crop_size = 1024
+    crop_size = int(0.1 * image.shape[0]) * 2
     pith_aug = copy.deepcopy(pith)
     img_aug = copy.deepcopy(image)
  
@@ -67,8 +67,8 @@ def savePith(mask_path, pith, image, i, output_path, save_type, augment=True):
  
     if np.sum(pith_crop) != 0:
         img_crop = img_aug[xStart:xStart + crop_size, yStart:yStart + crop_size]
-        # pith_crop = cv2.resize(pith_crop.astype(np.uint8), (1024, 1024))[:, :, None]
-        # img_crop = cv2.resize(img_crop.astype(np.uint8), (1024, 1024))
+        pith_crop = cv2.resize(pith_crop.astype(np.uint8), (256, 256))[:, :, None]
+        img_crop = cv2.resize(img_crop.astype(np.uint8), (256, 256))
  
         tifffile.imwrite(os.path.join(output_path, save_type, 'x', os.path.basename(mask_path)[:-4] + f'_aug{i}.tif'),
                          img_crop / 255)

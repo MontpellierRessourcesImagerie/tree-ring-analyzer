@@ -3,7 +3,7 @@ import numpy as np
 import tifffile
 import os
 from tensorflow import keras
-from tensorflow.keras.callbacks import ModelCheckpoint
+from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping
 import json
 
 
@@ -16,8 +16,8 @@ def read_images(img_path, label_path):
         img = img.astype(np.float32)  # Convert image to float32 for TensorFlow compatibility
         if len(img.shape) == 2:
             img = img[:, :, None]
-        if img.shape[-1] == 3:
-            img = (0.299 * img[:, :, 0] + 0.587 * img[:, :, 1] + 0.114 * img[:, :, 2])[:, :, None]
+        # if img.shape[-1] == 3:
+        #     img = (0.299 * img[:, :, 0] + 0.587 * img[:, :, 1] + 0.114 * img[:, :, 2])[:, :, None]
         return img
 
 
@@ -81,6 +81,11 @@ class Training:
                                                    save_best_only=True,  # Save only if it improves,
                                                    mode='min',  # Minimize the loss
                                                    verbose=1)
+        self.checkpoint_callback3 = EarlyStopping(monitor='val_loss',
+                                                    patience=10,
+                                                    verbose=0,
+                                                    mode='min')
+
         
         self.batchSize = 8
         self.bufferSize = 256
@@ -122,7 +127,7 @@ class Training:
                                 steps_per_epoch=self.stepsPerEpoch,
                                 validation_data=self.valDataset, 
                                 verbose=2,
-                                callbacks=[self.checkpoint_callback1, self.checkpoint_callback2]
+                                callbacks=[self.checkpoint_callback1, self.checkpoint_callback2, self.checkpoint_callback3]
                                 )
         
         json.dump(model_history.history, open(f'./history/{self.name}.json', 'w'))

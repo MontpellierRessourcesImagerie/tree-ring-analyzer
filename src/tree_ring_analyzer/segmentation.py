@@ -5,15 +5,14 @@ import cv2
 import multiprocessing
 from multiprocessing import Pool
 import numpy as np
-from scipy.ndimage import binary_dilation
 from scipy.signal import find_peaks, savgol_filter
 from scipy.optimize import linear_sum_assignment
 from skimage.filters import threshold_otsu
 from tree_ring_analyzer.tiles.tiler import ImageTiler2D
 import matplotlib.pyplot as plt
-from scipy.ndimage import distance_transform_edt, binary_dilation, binary_erosion
+from scipy.ndimage import binary_erosion
 from skimage.morphology import skeletonize
-from skimage import exposure
+import skimage
 
 
 
@@ -55,7 +54,7 @@ class TreeRingSegmentation:
 
     def __init__(self, resize=10):
         self.patchSize = 256
-        self.cropSize = 1024
+        # self.cropSize = 1024
         self.overlap = self.patchSize - 196
         self.batchSize = 8
         self.thickness = 3
@@ -103,10 +102,11 @@ class TreeRingSegmentation:
         return postPredictionRing
     
 
-    def cropAndPredictPith(self, modelPith, image, center, n_iters=0):
+    def cropAndPredictPith(self, modelPith, image, center, cropSize, n_iters=0):
         ## Cropping
-        crop_img = image[center[0] - int(self.cropSize / 2):center[0] + int(self.cropSize / 2),
-                        center[1] - int(self.cropSize / 2):center[1] + int(self.cropSize / 2)]
+        crop_img = image[center[0] - int(cropSize / 2):center[0] + int(cropSize / 2),
+                        center[1] - int(cropSize / 2):center[1] + int(cropSize / 2)]
+        crop_img = cv2.resize(crop_img, (self.patchSize, self.patchSize))[:, :, None]
         crop_img = crop_img[None, :, :, :]
         crop_img = crop_img / 255
 
@@ -115,10 +115,13 @@ class TreeRingSegmentation:
         prediction_crop_pith[prediction_crop_pith >= 0.5] = 1
         prediction_crop_pith[prediction_crop_pith < 0.5] = 0
 
+        # plt.subplot(121)
+        # plt.imshow(crop_img[0, :, :, 0])
+        # plt.subplot(122)
         # plt.imshow(prediction_crop_pith[0, :, :, 0])
         # plt.show()
 
-        thres = 0.01 * self.cropSize
+        thres = 0.01 * cropSize
         one_indices = np.where(prediction_crop_pith[0, :, :, 0] == 1)
 
         c1x = np.sum(prediction_crop_pith[:, 0, :, :]) >= thres
@@ -151,27 +154,28 @@ class TreeRingSegmentation:
         yStart, yEnd = np.min(one_indices[1]) * self.resize, np.max(one_indices[1]) * self.resize
 
         ## Identify center
-        one_indices = np.where(self.predictionRing[xStart:xEnd, yStart:yEnd] >= 1)
+        ret = threshold_otsu(self.predictionRing[xStart:xEnd, yStart:yEnd])
+        one_indices = np.where(self.predictionRing[xStart:xEnd, yStart:yEnd] >= ret)
         if len(one_indices[0]):
             center = [xStart + int(np.mean(one_indices[0])), yStart + int(np.mean(one_indices[1]))]
         else:
             center = [int((xStart + xEnd) / 2), int((yStart + yEnd) / 2)]
         
         ## Prediction
-        prediction_pith, center = self.cropAndPredictPith(modelPith, image, center)
+        cropSize = int(0.1 * image.shape[0]) * 2
+        prediction_pith, center = self.cropAndPredictPith(modelPith, image, center, cropSize)
         self.center = int(center[0] / self.resize), int(center[1] / self.resize)
 
         self.pith = np.zeros((image.shape[0], image.shape[1]))
-        self.pith[center[0] - int(self.cropSize / 2):center[0] + int(self.cropSize / 2),
-                        center[1] - int(self.cropSize / 2):center[1] + int(self.cropSize / 2)] = prediction_pith[0, :, :, 0]
+        self.pith[center[0] - int(cropSize / 2):center[0] + int(cropSize / 2),
+                        center[1] - int(cropSize / 2):center[1] + int(cropSize / 2)] = cv2.resize(prediction_pith[0, :, :, 0], (cropSize, cropSize))
 
 
     def postprocessPith(self):
         one_indice = np.where(self.predictionRing >= 1)
-
-        if len(one_indice[0]):
-            center = int(np.mean(one_indice[0])), int(np.mean(one_indice[1]))
-            contours, _ = cv2.findContours(self.pith.astype(np.uint8), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        center = int(np.mean(one_indice[0])), int(np.mean(one_indice[1]))
+        contours, _ = cv2.findContours(self.pith.astype(np.uint8), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        if len(contours):
             chosen_contour = np.argmax([cv2.pointPolygonTest(contour, [center[1], center[0]], True) for contour in contours])
             
             pithContour = self.smooth(contours[chosen_contour], 1)
@@ -431,14 +435,14 @@ class Evaluation:
 
     def createSeg(self):
         self.predictedSeg = np.zeros_like(self.prediction)
-        sortedRadius = np.argsort(self.predictedRadius)
+        sortedRadius = np.argsort(self.predictedRadius)[::-1]
         for i in range(len(sortedRadius)):
-            cv2.drawContours(self.predictedSeg, [self.predictedRings[sortedRadius[i]][:, None, :]], 0, i + 1, -1)
+            cv2.drawContours(self.predictedSeg, [self.predictedRings[sortedRadius[i]][:, None, :]], 0, len(sortedRadius) - i, -1)
 
         self.gtSeg = np.zeros_like(self.mask)
-        sortedRadius = np.argsort(self.gtRadius)
+        sortedRadius = np.argsort(self.gtRadius)[::-1]
         for i in range(len(sortedRadius)):
-            cv2.drawContours(self.gtSeg, [self.gtRings[sortedRadius[i]][:, None, :]], 0, i + 1, -1)
+            cv2.drawContours(self.gtSeg, [self.gtRings[sortedRadius[i]][:, None, :]], 0, len(sortedRadius) - i, -1)
 
 
     def evaluateHausdorff(self):
@@ -459,23 +463,35 @@ class Evaluation:
 
     @staticmethod
     def calculateIoU(a, b):
-        return np.sum(a and b) / np.sum(a or b)
+        return np.sum(np.bitwise_and(a, b)) / np.sum(np.bitwise_or(a, b))
     
 
-    def evaluatemAR(self, iou_levels=[0.5, 1, 0.05]):
+    def evaluatemAR(self, iou_levels=np.arange(0.5, 1, 0.05)):
         predicted_uniques = np.unique(self.predictedSeg[self.predictedSeg > 0])
         gt_uniques = np.unique(self.gtSeg[self.gtSeg > 0])
 
-        iou_matrix = np.zeros((len(predicted_uniques, len(gt_uniques))))
-        for i in len(predicted_uniques):
+        iou_matrix = np.zeros((len(predicted_uniques), len(gt_uniques)))
+        for i in range(len(predicted_uniques)):
             a = predicted_uniques[i]
-            for j in len(gt_uniques):
+            for j in range(len(gt_uniques)):
                 b = gt_uniques[j]
-                iou_matrix[i, j] = self.calculateIoU(predicted_uniques == a, gt_uniques == b)
+                iou_matrix[i, j] = self.calculateIoU(self.predictedSeg == a, self.gtSeg == b)
 
         row_ind, col_ind = linear_sum_assignment(iou_matrix, maximize=True)
-        metrics = []
+        ious = iou_matrix[row_ind, col_ind]
+        AR = []
         for level in iou_levels:
-            ious = iou_matrix[row_ind, col_ind]
             ious_ok = ious >= level
+            row_ind1, col_ind1 = row_ind[ious_ok], col_ind[ious_ok]
+
+            TP = len(row_ind1)
+            FN = len(iou_matrix.T) - len(row_ind1)
+            AR.append(TP / (TP + FN))
+
+        return np.nanmean(AR)
+    
+
+    def evaluateARAND(self):
+        arand = skimage.metrics.adapted_rand_error(self.gtSeg, self.predictedSeg, ignore_labels=[0])[0]
+        return arand
             

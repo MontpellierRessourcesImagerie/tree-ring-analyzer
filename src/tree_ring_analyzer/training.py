@@ -11,7 +11,7 @@ if __name__ == '__main__':
     val_input_path = "/home/khietdang/Documents/khiet/treeRing/pith/val/x"
     val_mask_path = "/home/khietdang/Documents/khiet/treeRing/pith/val/y"
 
-    unet_model = Unet(input_size=(1024, 1024, 1),
+    unet_model = Unet(input_size=(256, 256, 3),
                                filter_num=[16, 24, 40, 80, 960],
                                n_labels=1,
                               #  output_activation='linear',
@@ -25,7 +25,7 @@ if __name__ == '__main__':
                      train_mask_path,
                      val_input_path,
                      val_mask_path,
-                     name='pithGrayNormal',
+                     name='pithRGBNormal256',
                      # loss='mse',
                      loss=bce_dice_loss(bce_coef=0.5),
                     numEpochs=100,
