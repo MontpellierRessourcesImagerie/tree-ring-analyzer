@@ -9,19 +9,25 @@ from tree_ring_analyzer.dl.preprocessing import savePith, createFolder, splitRin
 import cv2
 import matplotlib.pyplot as plt
 import numpy as np
+import random
 
 
 if __name__ == '__main__':
     input_path = '/home/khietdang/Documents/khiet/treeRing/input'
     masks_path = '/home/khietdang/Documents/khiet/treeRing/masks'
     big_dis_path = '/home/khietdang/Documents/khiet/treeRing/big_dis_otherrings'
-    pith_path = '/home/khietdang/Documents/khiet/treeRing/pith'
+    pith_path = '/home/khietdang/Documents/khiet/treeRing/pithWhole'
     tile_path = '/home/khietdang/Documents/khiet/treeRing/tile_big_dis_otherrings'
+    seed = 42
+    pithWhole = True
+
+    random.seed(seed)
+    np.random.seed(seed)
 
     masks_list = glob.glob(os.path.join(masks_path, '*.tif')) + glob.glob(os.path.join(masks_path, '*.jpg'))
 
-    train, test = train_test_split(masks_list, test_size=0.2, shuffle=True, random_state=42)
-    train, val = train_test_split(train, test_size=0.2, shuffle=True, random_state=42)
+    train, test = train_test_split(masks_list, test_size=0.2, shuffle=True, random_state=seed)
+    train, val = train_test_split(train, test_size=0.2, shuffle=True, random_state=seed)
 
     # if not os.path.exists(big_dis_path):
     #     os.makedirs(big_dis_path)
@@ -30,9 +36,9 @@ if __name__ == '__main__':
         shutil.rmtree(pith_path)
     createFolder(pith_path)
 
-    # if os.path.exists(tile_path):
-    #     shutil.rmtree(tile_path)
-    # createFolder(tile_path)
+    if os.path.exists(tile_path):
+        shutil.rmtree(tile_path)
+    createFolder(tile_path)
 
     for mask_path in masks_list:
         print(mask_path)
@@ -61,20 +67,20 @@ if __name__ == '__main__':
             num = 1
 
         if mask_path in test or mask_path in val:
-            savePith(mask_path, pith, image, 0, pith_path, save_type, False)
-            # saveTile(mask_path, other_rings_dis, image, 0, tile_path, save_type, False, thres)
+            savePith(mask_path, pith, image, 0, pith_path, save_type, False, pithWhole)
+            saveTile(mask_path, other_rings_dis, image, 0, tile_path, save_type, False, thres)
         else:
             data = []
             for i in range(0, num):
-                data.append((mask_path, pith, image, i, pith_path, save_type, True))
+                data.append((mask_path, pith, image, i, pith_path, save_type, True, pithWhole))
 
             with Pool(int(multiprocessing.cpu_count())) as pool:
                 pool.starmap(savePith, data)
 
-            # data = []
-            # for i in range(0, num):
-            #     data.append((mask_path, other_rings_dis, image, i, tile_path, save_type, True, thres))
+            data = []
+            for i in range(0, num):
+                data.append((mask_path, other_rings_dis, image, i, tile_path, save_type, True, thres))
 
-            # with Pool(int(multiprocessing.cpu_count() * 0.5)) as pool:
-            #     pool.starmap(saveTile, data)
+            with Pool(int(multiprocessing.cpu_count() * 0.5)) as pool:
+                pool.starmap(saveTile, data)
 

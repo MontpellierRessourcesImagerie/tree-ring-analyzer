@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 from scipy.ndimage import binary_erosion
 from skimage.morphology import skeletonize
 import skimage
+from sklearn.metrics import recall_score, precision_score, f1_score, accuracy_score
 
 
 
@@ -54,7 +55,6 @@ class TreeRingSegmentation:
 
     def __init__(self, resize=10):
         self.patchSize = 256
-        # self.cropSize = 1024
         self.overlap = self.patchSize - 196
         self.batchSize = 8
         self.thickness = 3
@@ -106,8 +106,11 @@ class TreeRingSegmentation:
         ## Cropping
         crop_img = image[center[0] - int(cropSize / 2):center[0] + int(cropSize / 2),
                         center[1] - int(cropSize / 2):center[1] + int(cropSize / 2)]
-        crop_img = cv2.resize(crop_img, (self.patchSize, self.patchSize))[:, :, None]
-        crop_img = crop_img[None, :, :, :]
+        crop_img = cv2.resize(crop_img, (self.patchSize, self.patchSize))
+        if len(crop_img.shape) == 2:
+            crop_img = crop_img[None, :, :, None]
+        elif len(crop_img.shape) == 3:
+            crop_img = crop_img[None, :, :, :]
         crop_img = crop_img / 255
 
         ## Prediction
@@ -127,24 +130,30 @@ class TreeRingSegmentation:
         c1x = np.sum(prediction_crop_pith[:, 0, :, :]) >= thres
         c2x = np.sum(prediction_crop_pith[:, -1, :, :]) >= thres
 
-        stop1, stop2 = False, False
+        stop1, stop2, stop3 = False, False, False
         new_center = copy.deepcopy(center)
         if (c1x and not c2x) or (c2x and not c1x):
-            new_center[0] = center[0] - int(self.cropSize / 2) + int(np.mean(one_indices[0]))
+            new_center[0] = center[0] - int(cropSize / 2) + int(np.mean(one_indices[0]))
         else:
             stop1 = True
 
         c1y = np.sum(prediction_crop_pith[:, :, 0, :]) >= thres
         c2y = np.sum(prediction_crop_pith[:, :, -1, :]) >= thres
         if (c1y and not c2y) or (c2y and not c1y):
-            new_center[1] = center[1] - int(self.cropSize / 2) + int(np.mean(one_indices[1]))
+            new_center[1] = center[1] - int(cropSize / 2) + int(np.mean(one_indices[1]))
         else:
             stop2 = True
 
-        if (not (stop1 and stop2)) and n_iters < 2:
-            prediction_crop_pith, center = self.cropAndPredictPith(modelPith, image, new_center, n_iters + 1)
+        if np.sum(prediction_crop_pith) == 0:
+            cropSize = cropSize * 2
+            cropSize = int(min(cropSize / 2, center[0], image.shape[0] - center[0], center[1], image.shape[1] - center[1])) * 2
+        else:
+            stop3 = True
 
-        return prediction_crop_pith, center
+        if (not (stop1 and stop2 and stop3)) and n_iters < 2:
+            prediction_crop_pith, center, cropSize = self.cropAndPredictPith(modelPith, image, new_center, cropSize, n_iters + 1)
+
+        return prediction_crop_pith, center, cropSize
 
 
     def predictPith(self, modelPith, image):
@@ -163,7 +172,7 @@ class TreeRingSegmentation:
         
         ## Prediction
         cropSize = int(0.1 * image.shape[0]) * 2
-        prediction_pith, center = self.cropAndPredictPith(modelPith, image, center, cropSize)
+        prediction_pith, center, cropSize = self.cropAndPredictPith(modelPith, image, center, cropSize)
         self.center = int(center[0] / self.resize), int(center[1] / self.resize)
 
         self.pith = np.zeros((image.shape[0], image.shape[1]))
@@ -184,6 +193,8 @@ class TreeRingSegmentation:
         
     
     def createMask(self, image):
+        if image.shape[-1] == 3:
+            image = (0.299 * image[:, :, 0] + 0.587 * image[:, :, 1] + 0.114 * image[:, :, 2])[:, :, None]
         imageBinary = cv2.resize(image, (int(self.shape[1] / self.resize), int(self.shape[0] / self.resize)))
         ret = threshold_otsu(imageBinary)
         imageBinary[imageBinary < ret] = 0
@@ -394,13 +405,6 @@ class Evaluation:
         self.prediction = prediction
         self.createRings()
         self.createSeg()
-
-
-    @staticmethod
-    def calculateRadius(ring):
-        center = np.mean(np.squeeze(ring), axis=0)
-        dis = np.sqrt(np.sum((np.squeeze(ring) - center[None, :]) ** 2, axis=-1))
-        return np.mean(dis)
     
 
     @staticmethod
@@ -417,48 +421,39 @@ class Evaluation:
         self.prediction[np.bitwise_not(skeletonize(self.prediction))] = 0
         num_labels, labeled_mask = cv2.connectedComponents(self.prediction)
         self.predictedRings = []
-        self.predictedRadius = []
         for i in range(1, num_labels):
             predictedRing = np.transpose(np.array(np.where(labeled_mask == i)))
             self.predictedRings.append(predictedRing[:, ::-1])
-            self.predictedRadius.append(self.calculateRadius(predictedRing))
 
         self.mask[np.bitwise_not(skeletonize(self.mask))] = 0
         num_labels, labeled_mask = cv2.connectedComponents(self.mask)
         self.gtRings = []
-        self.gtRadius = []
         for i in range(1, num_labels):
             gtRing = np.transpose(np.array(np.where(labeled_mask == i)))
             self.gtRings.append(gtRing[:, ::-1])
-            self.gtRadius.append(self.calculateRadius(gtRing))
 
 
     def createSeg(self):
         self.predictedSeg = np.zeros_like(self.prediction)
-        sortedRadius = np.argsort(self.predictedRadius)[::-1]
+        sortedRadius = np.argsort([len(ring) for ring in self.predictedRings])[::-1]
         for i in range(len(sortedRadius)):
             cv2.drawContours(self.predictedSeg, [self.predictedRings[sortedRadius[i]][:, None, :]], 0, len(sortedRadius) - i, -1)
 
         self.gtSeg = np.zeros_like(self.mask)
-        sortedRadius = np.argsort(self.gtRadius)[::-1]
+        sortedRadius = np.argsort([len(ring) for ring in self.gtRings])[::-1]
         for i in range(len(sortedRadius)):
             cv2.drawContours(self.gtSeg, [self.gtRings[sortedRadius[i]][:, None, :]], 0, len(sortedRadius) - i, -1)
 
 
     def evaluateHausdorff(self):
-        diffRadius = np.abs(np.array(self.predictedRadius)[:, None] - np.array(self.gtRadius)[None, :])
-        max_value = np.max(diffRadius)
-        num_pairs = np.min(diffRadius.shape)
-        hausdorff = []
-        for i in range(0, num_pairs):
-            j, k = np.where(diffRadius ==  np.min(diffRadius))
-            j = j[0]
-            k = k[0]
-            hausdorff.append(self.calculateHausdorffDistance(np.squeeze(self.predictedRings[j]), np.squeeze(self.gtRings[k])))
-            diffRadius[j, :] = max_value
-            diffRadius[:, k] = max_value
+        hausdorff_matrix = np.zeros((len(self.predictedRings), len(self.gtRings)))
+        for i in range(len(self.predictedRings)):
+            for j in range(len(self.gtRings)):
+                hausdorff_matrix[i, j] = self.calculateHausdorffDistance(np.squeeze(self.predictedRings[i]), np.squeeze(self.gtRings[j]))
 
-        return np.max(hausdorff)
+        row_ind, col_ind = linear_sum_assignment(hausdorff_matrix)
+        hausdorff = hausdorff_matrix[row_ind, col_ind]
+        return np.mean(hausdorff)
 
 
     @staticmethod
@@ -495,3 +490,16 @@ class Evaluation:
         arand = skimage.metrics.adapted_rand_error(self.gtSeg, self.predictedSeg, ignore_labels=[0])[0]
         return arand
             
+
+    def evaluateRPFA(self):
+        gtRingSeg = skeletonize(self.mask).astype(np.uint8).flatten()
+
+        predictedRingSeg = np.zeros_like(self.prediction)
+        predictedRingSeg[self.prediction == 255] = 1
+        predictedRingSeg = predictedRingSeg.flatten()
+
+        recall = recall_score(gtRingSeg, predictedRingSeg)
+        precision = precision_score(gtRingSeg, predictedRingSeg)
+        f1 = f1_score(gtRingSeg, predictedRingSeg)
+        acc = accuracy_score(gtRingSeg, predictedRingSeg)
+        return recall, precision, f1, acc

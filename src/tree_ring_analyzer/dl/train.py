@@ -7,7 +7,7 @@ from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping
 import json
 
 
-def read_images(img_path, label_path):
+def read_images(img_path, label_path, channel):
 
 
     def _load_image(path):
@@ -16,8 +16,8 @@ def read_images(img_path, label_path):
         img = img.astype(np.float32)  # Convert image to float32 for TensorFlow compatibility
         if len(img.shape) == 2:
             img = img[:, :, None]
-        # if img.shape[-1] == 3:
-        #     img = (0.299 * img[:, :, 0] + 0.587 * img[:, :, 1] + 0.114 * img[:, :, 2])[:, :, None]
+        if channel == 1 and img.shape[-1] == 3:
+            img = (0.299 * img[:, :, 0] + 0.587 * img[:, :, 1] + 0.114 * img[:, :, 2])[:, :, None]
         return img
 
 
@@ -57,7 +57,7 @@ class Training:
 
 
     def __init__(self, input_path, label_path, val_input_path, val_label_path,
-                 name, loss='mse', metrics=['accuracy', 'precision', 'recall', 'mse'], numEpochs=100):
+                 name, loss='mse', metrics=['accuracy', 'precision', 'recall', 'mse'], numEpochs=100, channel=1):
         self.inputPath = input_path
         self.labelPath = label_path
         self.valInputPath = val_input_path
@@ -66,6 +66,7 @@ class Training:
         self.loss = loss
         self.metrics = metrics
         self.numEpochs = numEpochs
+        self.channel = channel
 
         self.trainDataset = None
         self.valDataset = None
@@ -101,14 +102,14 @@ class Training:
         self.stepsPerEpoch = len(train_input_paths) // self.batchSize
 
         train_path_dataset = tf.data.Dataset.from_tensor_slices((train_input_paths, train_mask_paths))
-        trainDataset = train_path_dataset.map(lambda img_path, label: (read_images(img_path, label)), num_parallel_calls=tf.data.AUTOTUNE)
+        trainDataset = train_path_dataset.map(lambda img_path, label: (read_images(img_path, label, self.channel)), num_parallel_calls=tf.data.AUTOTUNE)
         trainDataset = trainDataset.shuffle(self.bufferSize).batch(self.batchSize)
         self.trainDataset = trainDataset.prefetch(tf.data.AUTOTUNE)
 
         val_input_paths = [os.path.join(self.valInputPath, path) for path in os.listdir(self.valInputPath) if path.endswith(".tif")]
         val_mask_paths = [os.path.join(self.valLabelPath, path) for path in os.listdir(self.valLabelPath) if path.endswith(".tif")]
         val_path_dataset = tf.data.Dataset.from_tensor_slices((val_input_paths, val_mask_paths))
-        valDataset = val_path_dataset.map(lambda img_path, label: (read_images(img_path, label)), num_parallel_calls=tf.data.AUTOTUNE)
+        valDataset = val_path_dataset.map(lambda img_path, label: (read_images(img_path, label, self.channel)), num_parallel_calls=tf.data.AUTOTUNE)
         valDataset = valDataset.shuffle(self.bufferSize).batch(self.batchSize)
         self.valDataset = valDataset.prefetch(tf.data.AUTOTUNE)
 
