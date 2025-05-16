@@ -32,15 +32,15 @@ if __name__ == '__main__':
     # if not os.path.exists(big_dis_path):
     #     os.makedirs(big_dis_path)
 
-    if os.path.exists(pith_path):
-        shutil.rmtree(pith_path)
-    createFolder(pith_path)
+    # if os.path.exists(pith_path):
+    #     shutil.rmtree(pith_path)
+    # createFolder(pith_path)
 
     if os.path.exists(tile_path):
         shutil.rmtree(tile_path)
     createFolder(tile_path)
 
-    for mask_path in masks_list:
+    for mask_path in masks_list[48:]:
         print(mask_path)
         if mask_path.endswith('.tif'):
             mask = tifffile.imread(mask_path)
@@ -58,7 +58,7 @@ if __name__ == '__main__':
 
         if mask_path in train:
             save_type = 'train'
-            num = 500
+            num = 300
         elif mask_path in test:
             save_type = 'test'
             num = 1

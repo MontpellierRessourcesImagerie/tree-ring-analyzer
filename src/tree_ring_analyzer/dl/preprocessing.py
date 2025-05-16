@@ -24,24 +24,6 @@ def augmentImages(img, mask):
         mask = np.flip(mask, axis=axis)
 
     return img, mask
-
-
-
-def savePithWhole(mask_path, pith, image, i, output_path, save_type, augment=True):
-    pith_aug = copy.deepcopy(pith)
-    img_aug = copy.deepcopy(image)
-    if augment:
-        img_aug, pith_aug = augmentImages(img_aug, pith_aug)
-    
-    if np.sum(pith_aug) != 0:
-        pith_crop = cv2.resize(pith_aug.astype(np.uint8), (256, 256))[:, :, None]
-        img_crop = cv2.resize(img_aug.astype(np.uint8), (256, 256))
-        pith_crop[pith_crop != 0] = 255
-
-        tifffile.imwrite(os.path.join(output_path, save_type, 'x', os.path.basename(mask_path)[:-4] + f'_aug{i}.tif'),
-                         img_crop / 255)
-        tifffile.imwrite(os.path.join(output_path, save_type, 'y', os.path.basename(mask_path)[:-4] + f'_aug{i}.tif'),
-                         pith_crop.astype(np.uint8))
         
 
 
@@ -146,7 +128,7 @@ def splitRingsAndPith(mask, iterations=10):
     other_rings = copy.deepcopy(mask)
     other_rings[pith == 1] = 0
     other_rings[other_rings == 255] = 1
-    other_rings = binary_dilation(other_rings, iterations=iterations)
+    # other_rings = binary_dilation(other_rings, iterations=iterations)
     other_rings_dis = distance_transform_edt(other_rings).astype(np.float16)
 
     return pith, other_rings_dis.astype(np.uint8)

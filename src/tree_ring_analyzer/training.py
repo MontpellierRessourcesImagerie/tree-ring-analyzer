@@ -8,10 +8,10 @@ import random
 
 
 if __name__ == '__main__':
-    train_input_path = "/home/khietdang/Documents/khiet/INBD/dataset/VM/tile_big_dis_otherrings/train/x"
-    train_mask_path = "/home/khietdang/Documents/khiet/INBD/dataset/VM/tile_big_dis_otherrings/train/y"
-    val_input_path = "/home/khietdang/Documents/khiet/INBD/dataset/VM/tile_big_dis_otherrings/val/x"
-    val_mask_path = "/home/khietdang/Documents/khiet/INBD/dataset/VM/tile_big_dis_otherrings/val/y"
+    train_input_path = "/home/khietdang/Documents/khiet/treeRing/tile_big_dis_otherrings/train/x"
+    train_mask_path = "/home/khietdang/Documents/khiet/treeRing/tile_big_dis_otherrings/train/y"
+    val_input_path = "/home/khietdang/Documents/khiet/treeRing/tile_big_dis_otherrings/val/x"
+    val_mask_path = "/home/khietdang/Documents/khiet/treeRing/tile_big_dis_otherrings/val/y"
 
     input_size = (256, 256, 1)
     seed = 42
@@ -24,19 +24,17 @@ if __name__ == '__main__':
                                filter_num=[16, 24, 40, 80, 960],
                                n_labels=1,
                                output_activation='linear',
-                            #    output_activation='sigmoid',
-                               attention=False,
+                              #  output_activation='sigmoid',
+                               attention=True,
                                ).model
-    
-    # unet_model = tf.keras.models.load_model('/home/khietdang/Documents/khiet/tree-ring-analyzer/models/bigDisRingAugGrayEH.keras')
 
     train = Training(train_input_path, 
                      train_mask_path,
                      val_input_path,
                      val_mask_path,
-                     name='ringVM',
+                     name='bigDisRingAugGray16',
                      loss='mse',
-                    #  loss=bce_dice_loss(bce_coef=0.5),
+                     # loss=bce_dice_loss(bce_coef=0.5),
                     numEpochs=100,
                     channel = input_size[-1]
                      )

@@ -53,13 +53,14 @@ class CircleHeuristicFunction(Heuristic):
 class TreeRingSegmentation:
     
 
-    def __init__(self, resize=10):
+    def __init__(self, resize=10, pithWhole=False):
         self.patchSize = 256
         self.overlap = self.patchSize - 196
         self.batchSize = 8
-        self.thickness = 3
+        self.thickness = 1
         self.iterations = 10
         self.resize = resize
+        self.pithWhole = pithWhole
 
         self.predictionRing = None
         self.pith = None
@@ -171,17 +172,32 @@ class TreeRingSegmentation:
             center = [int((xStart + xEnd) / 2), int((yStart + yEnd) / 2)]
         
         ## Prediction
-        cropSize = int(0.1 * image.shape[0]) * 2
-        prediction_pith, center, cropSize = self.cropAndPredictPith(modelPith, image, center, cropSize)
-        self.center = int(center[0] / self.resize), int(center[1] / self.resize)
+        
+        if self.pithWhole:
+            resizedImage = cv2.resize(image, (self.patchSize, self.patchSize)) / 255
+            if len(resizedImage.shape) == 2:
+                resizedImage = resizedImage[None, :, :, None]
+            elif len(resizedImage.shape) == 3:
+                resizedImage = resizedImage[None, :, :, :]
+            prediction_pith = modelPith.predict(resizedImage, batch_size=1, verbose=0)
+            prediction_pith[prediction_pith >= 0.5] = 1
+            prediction_pith[prediction_pith < 0.5] = 0
+            self.pith = cv2.resize(prediction_pith[0], (image.shape[1], image.shape[0]))
 
-        self.pith = np.zeros((image.shape[0], image.shape[1]))
-        self.pith[center[0] - int(cropSize / 2):center[0] + int(cropSize / 2),
-                        center[1] - int(cropSize / 2):center[1] + int(cropSize / 2)] = cv2.resize(prediction_pith[0, :, :, 0], (cropSize, cropSize))
+        else:
+            cropSize = int(0.1 * image.shape[0]) * 2
+            prediction_pith, center, cropSize = self.cropAndPredictPith(modelPith, image, center, cropSize)
+
+            self.pith = np.zeros((image.shape[0], image.shape[1]))
+            self.pith[center[0] - int(cropSize / 2):center[0] + int(cropSize / 2),
+                            center[1] - int(cropSize / 2):center[1] + int(cropSize / 2)] = cv2.resize(prediction_pith[0, :, :, 0], (cropSize, cropSize))
+            
+        self.center = int(center[0] / self.resize), int(center[1] / self.resize)
 
 
     def postprocessPith(self):
-        one_indice = np.where(self.predictionRing >= 1)
+        ret = threshold_otsu(self.predictionRing)
+        one_indice = np.where(self.predictionRing > ret)
         center = int(np.mean(one_indice[0])), int(np.mean(one_indice[1]))
         contours, _ = cv2.findContours(self.pith.astype(np.uint8), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
         if len(contours):
@@ -272,7 +288,6 @@ class TreeRingSegmentation:
         peaks1_center = np.abs(peaks1 - self.center[1])[:, None] * minLength / length1
         peaks2_center = np.abs(peaks2 - self.center[1])[None, :] * minLength / length2
         diff_pp = np.abs(peaks1_center - peaks2_center)
-        # max_value = np.max(diff_pp) + 1
 
         image_upper = np.zeros_like(prediction_ring)
         image_upper[:dark_point] = 1
@@ -280,20 +295,6 @@ class TreeRingSegmentation:
         image_lower = np.zeros_like(prediction_ring)
         image_lower[dark_point:] = 1
         image_lower = image_lower * prediction_ring
-
-        # for k in range(0, num_pair, 1):
-        #     min_value = np.min(diff_pp)
-        #     if min_value == max_value:
-        #         break
-        #     j, i = np.where(diff_pp == min_value)
-        #     j = j[0]
-        #     i = i[0]
-            
-        #     data.append((image_upper, peaks1[j], peaks2[i], dark_point - 1, np.array(self.center), self.resize))
-        #     data.append((image_lower, peaks1[j], peaks2[i], dark_point, np.array(self.center), self.resize))
-        #     remains.remove(j)
-        #     diff_pp[j, :] = max_value
-        #     diff_pp[:, i] = max_value
 
         row_ind, col_ind = linear_sum_assignment(diff_pp)
         for k in range(len(row_ind)):

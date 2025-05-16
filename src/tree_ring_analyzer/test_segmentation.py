@@ -17,9 +17,9 @@ if __name__ == '__main__':
     mask_folder = '/home/khietdang/Documents/khiet/treeRing/masks'
     output_folder = '/home/khietdang/Documents/khiet/treeRing/output'
     checkpoint_ring_path = '/home/khietdang/Documents/khiet/tree-ring-analyzer/models/bigDisRingAugGray.keras'
-    checkpoint_pith_path = '/home/khietdang/Documents/khiet/tree-ring-analyzer/models/pithGray.keras'
+    checkpoint_pith_path = '/home/khietdang/Documents/khiet/tree-ring-analyzer/models/pithGrayWhole.keras'
     csv_file = '/home/khietdang/Documents/khiet/treeRing/doc/result_our.csv'
-    pithWhole = False
+    pithWhole = True
 
     with open(csv_file, 'w') as file:
         writer = csv.writer(file)
