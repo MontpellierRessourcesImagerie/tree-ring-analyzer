@@ -350,49 +350,27 @@ def endpoints(image_path, pith_folder, output_folder):
         dis[dis == 0] = max_value
         
         remains = list(range(0, len(dis)))
-        while len(remains) >= 2:
-            i = remains[0]
-            # if i == 5:
-            #     print('abc')
-            chose_point = choose_point(i, dis, dis_center, endpoints, remains, max_value, 
-                                                image1, 0.10 * image.shape[0], [center[1], center[0]])
+        # while len(remains) >= 2:
+        #     i = remains[0]
+        #     # if i == 5:
+        #     #     print('abc')
+        #     chose_point = choose_point(i, dis, dis_center, endpoints, remains, max_value, 
+        #                                         image1, 0.10 * image.shape[0], [center[1], center[0]])
             
-            if chose_point is None:
-                dis[i, :] = copy.deepcopy(max_value)
-                dis[:, i] = copy.deepcopy(max_value)
-                remains.remove(i)
-                continue
+        #     if chose_point is None:
+        #         dis[i, :] = copy.deepcopy(max_value)
+        #         dis[:, i] = copy.deepcopy(max_value)
+        #         remains.remove(i)
+        #         continue
             
-            if dis[i, chose_point] / dis_center[i] < 1.2:
-                cv2.line(image1, endpoints[i, 1:3], endpoints[chose_point, 1:3], 1, 1)
-            else:
-                # mid = (endpoints[i, 1] + endpoints[chose_point, 1]) / 2, (endpoints[i, 2] + endpoints[chose_point, 2]) / 2
-                # radius = (dis_center[i] + dis_center[chose_point]) / 2
-                # dis_mid_center = np.sqrt((mid[0] - center[1]) ** 2 + (mid[1] - center[0]) ** 2)
-                # ratio = radius / dis_mid_center
-                # third_point = (dis)
-                # center2, radius = findCircle(endpoints[i, 1], endpoints[i, 2], center[1], center[0], endpoints[chose_point, 1], endpoints[chose_point, 2])
-                # center3 = (2 * center2[0] - center[1], 2 * center2[1] - center[0])
-                # cor = curva_b(endpoints[i, 1], endpoints[i, 2], center3[0], center3[1], endpoints[chose_point, 1], endpoints[chose_point, 2])
-                # cor = np.array(cor)[:, None, :]
-                cor = plot_curve(endpoints[i, 1:3], endpoints[chose_point, 1:3], [center[1], center[0]], thresh=0.01*image.shape[0])
-                image1 = cv2.polylines(image1, cor, True, 1, 1)
+        #     cv2.line(image1, endpoints[i, 1:3], endpoints[chose_point, 1:3], 1, 1)
 
-            dis[i, :] = copy.deepcopy(max_value)
-            dis[:, i] = copy.deepcopy(max_value)
-            dis[chose_point, :] = copy.deepcopy(max_value)
-            dis[:, chose_point] = copy.deepcopy(max_value)
-            remains.remove(i)
-            remains.remove(chose_point)
-            print(i, chose_point)
-
-        # image_final = np.zeros_like(image_combined)
-        # contours, hierarchy = cv2.findContours(image1, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
-        # for i in range(0, len(contours)):
-        #     if hierarchy[0][i][3] == -1:
-        #         hull = cv2.convexHull(contours[i])
-        #         if cv2.pointPolygonTest(hull, [center[1], center[0]], True) > 0:
-        #             cv2.drawContours(image_final, [hull], 0, 1, 1)
+        #     dis[i, :] = copy.deepcopy(max_value)
+        #     dis[:, i] = copy.deepcopy(max_value)
+        #     dis[chose_point, :] = copy.deepcopy(max_value)
+        #     dis[:, chose_point] = copy.deepcopy(max_value)
+        #     remains.remove(i)
+        #     remains.remove(chose_point)
 
     image_final = np.zeros_like(image_combined)
     num_label, labels = cv2.connectedComponents(image1)
@@ -409,16 +387,16 @@ def endpoints(image_path, pith_folder, output_folder):
     longest_contour = np.argmax(np.array([len(contour) for contour in contours]))
     cv2.drawContours(image_final, contours, longest_contour, 1, 1)
 
-    # plt.subplot(1, 3, 1)
-    # plt.imshow(image, cmap='gray')
-    # plt.subplot(1, 3, 2)
-    # plt.imshow(labels, cmap='gray')
-    for i in [32, 34]:
-        plt.plot(endpoints[i, 1], endpoints[i, 2], 'bo')
-    # plt.subplot(1, 3, 3)
-    plt.imshow(image_final)
-    plt.plot(int(center[1]), int(center[0]), 'bo')
-    plt.show()
+    # # plt.subplot(1, 3, 1)
+    # # plt.imshow(image, cmap='gray')
+    # # plt.subplot(1, 3, 2)
+    # # plt.imshow(labels, cmap='gray')
+    # for i in [32, 34]:
+    #     plt.plot(endpoints[i, 1], endpoints[i, 2], 'bo')
+    # # plt.subplot(1, 3, 3)
+    # plt.imshow(image_final)
+    # plt.plot(int(center[1]), int(center[0]), 'bo')
+    # plt.show()
 
     image_final[image_final == 1] = 255
     # image1[image1 == 1] = 255

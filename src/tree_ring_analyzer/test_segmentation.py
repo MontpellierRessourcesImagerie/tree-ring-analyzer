@@ -15,11 +15,11 @@ import csv
 if __name__ == '__main__':
     input_folder = '/home/khietdang/Documents/khiet/treeRing/input'
     mask_folder = '/home/khietdang/Documents/khiet/treeRing/masks'
-    output_folder = '/home/khietdang/Documents/khiet/treeRing/output'
-    checkpoint_ring_path = '/home/khietdang/Documents/khiet/tree-ring-analyzer/models/bigDisRingAugGray.keras'
-    checkpoint_pith_path = '/home/khietdang/Documents/khiet/tree-ring-analyzer/models/pithGrayWhole.keras'
+    output_folder = '/home/khietdang/Documents/khiet/treeRing/output8'
+    checkpoint_ring_path = '/home/khietdang/Documents/khiet/tree-ring-analyzer/models/bigDisRingAugGray16.keras'
+    checkpoint_pith_path = '/home/khietdang/Documents/khiet/tree-ring-analyzer/models/pithGray16.keras'
     csv_file = '/home/khietdang/Documents/khiet/treeRing/doc/result_our.csv'
-    pithWhole = True
+    pithWhole = False
 
     with open(csv_file, 'w') as file:
         writer = csv.writer(file)

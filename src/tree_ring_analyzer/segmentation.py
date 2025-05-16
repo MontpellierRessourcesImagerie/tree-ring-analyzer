@@ -12,7 +12,7 @@ from tree_ring_analyzer.tiles.tiler import ImageTiler2D
 import matplotlib.pyplot as plt
 from scipy.ndimage import binary_erosion
 from skimage.morphology import skeletonize
-import skimage
+from skimage.metrics import adapted_rand_error, hausdorff_distance
 from sklearn.metrics import recall_score, precision_score, f1_score, accuracy_score
 
 
@@ -35,16 +35,18 @@ class CircleHeuristicFunction(Heuristic):
         if (len(current_point) == 0 or len(goal_point) == 0) or (len(current_point) != len(goal_point)):
             raise ValueError
 
-        diff0 = np.sqrt(np.sum((current_point[1] - goal_point[1]) ** 2))
+        # h0 = np.sqrt(np.sum((current_point - goal_point) ** 2))
+        h1 = np.sqrt((current_point[1] - goal_point[1]) ** 2)
 
-        currentRadius = (diff0 / (self.radius[0] + self.radius[1])) * (self.radius[0] - self.radius[1]) + self.radius[1]
+        currentRadius = (h1 / (self.radius[0] + self.radius[1])) * (self.radius[0] - self.radius[1]) + self.radius[1]
 
-        diff1 = np.abs(currentRadius - np.sqrt(np.sum((self.center - current_point) ** 2)))
+        h2 = np.abs(currentRadius - np.sqrt(np.sum((self.center - current_point) ** 2)))
+        h3 = np.abs(np.sum((current_point - goal_point) * (current_point - self.startPoint)))
 
-        if diff1 > 0.2 * currentRadius and self.image[current_point[0], current_point[1]] < 1:
-            cost = diff0 + diff1 ** 2
+        if h2 > 0.2 * currentRadius and self.image[current_point[0], current_point[1]] < 1:
+            cost = h1 + h2 ** 2 + h3
         else:
-            cost = diff0
+            cost = h1
 
         return cost
     
@@ -118,18 +120,19 @@ class TreeRingSegmentation:
         prediction_crop_pith = modelPith.predict(crop_img, batch_size=1, verbose=0)
         prediction_crop_pith[prediction_crop_pith >= 0.5] = 1
         prediction_crop_pith[prediction_crop_pith < 0.5] = 0
+        prediction_crop_pith = cv2.resize(prediction_crop_pith[0, :, :, 0], (cropSize, cropSize))
 
         # plt.subplot(121)
         # plt.imshow(crop_img[0, :, :, 0])
         # plt.subplot(122)
-        # plt.imshow(prediction_crop_pith[0, :, :, 0])
+        # plt.imshow(prediction_crop_pith)
         # plt.show()
 
         thres = 0.01 * cropSize
-        one_indices = np.where(prediction_crop_pith[0, :, :, 0] == 1)
+        one_indices = np.where(prediction_crop_pith == 1)
 
-        c1x = np.sum(prediction_crop_pith[:, 0, :, :]) >= thres
-        c2x = np.sum(prediction_crop_pith[:, -1, :, :]) >= thres
+        c1x = np.sum(prediction_crop_pith[0, :]) >= thres
+        c2x = np.sum(prediction_crop_pith[-1, :]) >= thres
 
         stop1, stop2, stop3 = False, False, False
         new_center = copy.deepcopy(center)
@@ -138,21 +141,22 @@ class TreeRingSegmentation:
         else:
             stop1 = True
 
-        c1y = np.sum(prediction_crop_pith[:, :, 0, :]) >= thres
-        c2y = np.sum(prediction_crop_pith[:, :, -1, :]) >= thres
+        c1y = np.sum(prediction_crop_pith[:, 0]) >= thres
+        c2y = np.sum(prediction_crop_pith[:, -1]) >= thres
         if (c1y and not c2y) or (c2y and not c1y):
             new_center[1] = center[1] - int(cropSize / 2) + int(np.mean(one_indices[1]))
         else:
             stop2 = True
 
         if np.sum(prediction_crop_pith) == 0:
-            cropSize = cropSize * 2
-            cropSize = int(min(cropSize / 2, center[0], image.shape[0] - center[0], center[1], image.shape[1] - center[1])) * 2
+            new_cropSize = cropSize * 2
+            new_cropSize = int(min(cropSize / 2, center[0], image.shape[0] - center[0], center[1], image.shape[1] - center[1])) * 2
         else:
+            new_cropSize = copy.deepcopy(cropSize)
             stop3 = True
 
         if (not (stop1 and stop2 and stop3)) and n_iters < 2:
-            prediction_crop_pith, center, cropSize = self.cropAndPredictPith(modelPith, image, new_center, cropSize, n_iters + 1)
+            prediction_crop_pith, center, cropSize = self.cropAndPredictPith(modelPith, image, new_center, new_cropSize, n_iters + 1)
 
         return prediction_crop_pith, center, cropSize
 
@@ -190,7 +194,7 @@ class TreeRingSegmentation:
 
             self.pith = np.zeros((image.shape[0], image.shape[1]))
             self.pith[center[0] - int(cropSize / 2):center[0] + int(cropSize / 2),
-                            center[1] - int(cropSize / 2):center[1] + int(cropSize / 2)] = cv2.resize(prediction_pith[0, :, :, 0], (cropSize, cropSize))
+                            center[1] - int(cropSize / 2):center[1] + int(cropSize / 2)] = prediction_pith
             
         self.center = int(center[0] / self.resize), int(center[1] / self.resize)
 
@@ -406,17 +410,7 @@ class Evaluation:
         self.prediction = prediction
         self.createRings()
         self.createSeg()
-    
 
-    @staticmethod
-    def calculateDistance(ring1, ring2):
-        return np.sqrt(np.sum((ring1[:, None, :] - ring2[None, :, :]) ** 2, axis=-1))
-
-
-    def calculateHausdorffDistance(self, ring1, ring2):
-        dis = self.calculateDistance(ring1, ring2)
-        return max(np.max(np.min(dis, axis=0)), np.max(np.min(dis, axis=1)))
-    
 
     def createRings(self):
         self.prediction[np.bitwise_not(skeletonize(self.prediction))] = 0
@@ -447,14 +441,7 @@ class Evaluation:
 
 
     def evaluateHausdorff(self):
-        hausdorff_matrix = np.zeros((len(self.predictedRings), len(self.gtRings)))
-        for i in range(len(self.predictedRings)):
-            for j in range(len(self.gtRings)):
-                hausdorff_matrix[i, j] = self.calculateHausdorffDistance(np.squeeze(self.predictedRings[i]), np.squeeze(self.gtRings[j]))
-
-        row_ind, col_ind = linear_sum_assignment(hausdorff_matrix)
-        hausdorff = hausdorff_matrix[row_ind, col_ind]
-        return np.mean(hausdorff)
+        return hausdorff_distance(self.mask, self.prediction)
 
 
     @staticmethod
@@ -488,7 +475,7 @@ class Evaluation:
     
 
     def evaluateARAND(self):
-        arand = skimage.metrics.adapted_rand_error(self.gtSeg, self.predictedSeg, ignore_labels=[0])[0]
+        arand = adapted_rand_error(self.gtSeg, self.predictedSeg, ignore_labels=[0])[0]
         return arand
             
 
