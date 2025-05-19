@@ -1,4 +1,4 @@
-from tree_ring_analyzer.dl.postprocessing import endpoints
+from tree_ring_analyzer.dl.postprocessing import activeContour
 import glob
 import os
 from sklearn.model_selection import train_test_split
@@ -11,10 +11,10 @@ import numpy as np
 
 ring_path = '/home/khietdang/Documents/khiet/treeRing/MO_bigDisRingAugGrayNormal16'
 pith_path = '/home/khietdang/Documents/khiet/treeRing/predictions_pithGrayNormal16'
-output_path = '/home/khietdang/Documents/khiet/treeRing/output11'
+output_path = '/home/khietdang/Documents/khiet/treeRing/output_MOA'
 input_path = '/home/khietdang/Documents/khiet/treeRing/input'
 mask_path = '/home/khietdang/Documents/khiet/treeRing/masks'
-csv_file = '/home/khietdang/Documents/khiet/treeRing/doc/result_MOE.csv'
+csv_file = '/home/khietdang/Documents/khiet/treeRing/doc/result_MOA.csv'
 
 with open(csv_file, 'w') as file:
     writer = csv.writer(file)
@@ -34,10 +34,10 @@ acc = []
 
 for image_path in image_list:
     print(image_path)
-    prediction = endpoints(image_path, pith_path, output_path)
+    prediction, predictedRings = activeContour(image_path, pith_path, output_path)
     mask = tifffile.imread(os.path.join(mask_path, os.path.basename(image_path)))
 
-    evaluation = Evaluation(mask, prediction)
+    evaluation = Evaluation(mask, prediction, predictedRings=predictedRings)
     hausdorff.append(evaluation.evaluateHausdorff())
     mAR.append(evaluation.evaluatemAR())
     arand.append(evaluation.evaluateARAND())

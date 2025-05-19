@@ -7,6 +7,7 @@ import os
 from scipy.interpolate import griddata
 from scipy.ndimage import binary_dilation
 from skimage.draw import circle_perimeter
+from scipy.optimize import linear_sum_assignment
 from skimage.segmentation import active_contour
 from skimage.transform import hough_circle, hough_circle_peaks
 from sklearn.cluster import DBSCAN
@@ -15,21 +16,33 @@ import tifffile
 
 
 
-def activeContour(image_path):
+def activeContour(image_path, pith_path, output_path):
     image = tifffile.imread(image_path)
     image = binary_dilation(image, iterations=30).astype(np.uint8)
 
-    image = cv2.resize(image, (256, 256))
+    shapeOriginal = image.shape
+    image = cv2.resize(image, (int(image.shape[1] / 5), int(image.shape[0] / 5)))
     image[image==1] = 255
-    one_indice = np.where(image == 255)
+    
 
+    pith = tifffile.imread(os.path.join(pith_path, os.path.basename(image_path)))
+    pith_whole = cv2.resize(pith, (image.shape[1], image.shape[0]))
+    pith_whole[pith_whole >= 0.5] = 1
+    pith_whole[pith_whole < 0.5] = 0
+    pith_clear = binary_dilation(pith_whole)
+    image = (image * (1 - pith_clear)).astype(np.uint8)
+
+    one_indice = np.where(pith_whole == 1)
     center = np.mean(one_indice[0]), np.mean(one_indice[1])
-    radius = 120
+    contours, _ = cv2.findContours(pith_whole.astype(np.uint8), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    longest_contour = np.argmax(np.array([len(contour) for contour in contours]))
+    pithContour = contours[longest_contour]
+    rad_min = np.mean(np.sqrt((pithContour[:, 0, 1] - center[0]) ** 2 + (pithContour[:, 0, 0] - center[1]) ** 2))
+
+    rings = []
+    radius = int(0.95 * min(center[0], image.shape[0] - center[0], center[1], image.shape[1] - center[1]))
     i = 1
-    plt.figure()
-    plt.imshow(image, cmap='gray')
-    plt.axis('off')
-    plt.tight_layout()
+    
     while True:
         s = np.linspace(0, 2 * np.pi, int(np.pi * radius * 2))
         r = center[1] + radius * np.sin(s)
@@ -61,14 +74,30 @@ def activeContour(image_path):
             boundary_condition='periodic'
         )
 
-        plt.plot(snake[:, 1], snake[:, 0])
-        radius = np.min(np.sqrt((center[0] - snake[:, 0]) ** 2 + (center[1] - snake[:, 1]) ** 2)) - 10
+        rings.append((snake[:, ::-1] * 5).astype(np.int32))
+
+        radius = np.min(np.sqrt((center[0] - snake[:, 0]) ** 2 + (center[1] - snake[:, 1]) ** 2)) - int(0.05 * image.shape[0])
         
-        if radius <= 5 or i >= 5:
+        if radius <= rad_min or i >= 5:
             break
 
         i += 1
-    plt.savefig(image_path.replace('predictions_segmentation_from_bigDistance', 'active_contour_bigDistance'), format='tiff')
+
+    image_final = np.zeros((shapeOriginal[0], shapeOriginal[1]))
+
+    pith[pith >= 0.5] = 1
+    pith[pith < 0.5] = 0
+    contours, _ = cv2.findContours(pith.astype(np.uint8), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    longest_contour = np.argmax(np.array([len(contour) for contour in contours]))
+    rings.append(contours[longest_contour][:, 0, :])
+    cv2.drawContours(image_final, contours, longest_contour, 1, 1)
+
+    for ring in rings:
+        cv2.drawContours(image_final, [ring[:, None, :]], 0, 1, 1)
+
+    image_final[image_final == 1] = 255
+    tifffile.imwrite(os.path.join(output_path, os.path.basename(image_path)), image_final.astype(np.uint8))
+    return image_final, rings
 
 
 
@@ -317,7 +346,7 @@ def endpoints(image_path, pith_folder, output_folder):
     pith_whole[pith_whole >= 0.5] = 1
     pith_whole[pith_whole < 0.5] = 0
     
-    pith_clear = binary_dilation(pith_whole, iterations=50)
+    pith_clear = binary_dilation(pith_whole)
 
     image_combined = (image * (1 - pith_clear)).astype(np.uint8)
     
@@ -350,27 +379,26 @@ def endpoints(image_path, pith_folder, output_folder):
         dis[dis == 0] = max_value
         
         remains = list(range(0, len(dis)))
-        # while len(remains) >= 2:
-        #     i = remains[0]
-        #     # if i == 5:
-        #     #     print('abc')
-        #     chose_point = choose_point(i, dis, dis_center, endpoints, remains, max_value, 
-        #                                         image1, 0.10 * image.shape[0], [center[1], center[0]])
+        while len(remains) >= 2:
+            i = remains[0]
+            chose_point = choose_point(i, dis, dis_center, endpoints, remains, max_value, 
+                                                image1, 0.10 * image.shape[0], [center[1], center[0]])
             
-        #     if chose_point is None:
-        #         dis[i, :] = copy.deepcopy(max_value)
-        #         dis[:, i] = copy.deepcopy(max_value)
-        #         remains.remove(i)
-        #         continue
+            if chose_point is None:
+                dis[i, :] = copy.deepcopy(max_value)
+                dis[:, i] = copy.deepcopy(max_value)
+                remains.remove(i)
+                continue
             
-        #     cv2.line(image1, endpoints[i, 1:3], endpoints[chose_point, 1:3], 1, 1)
+            cv2.line(image1, endpoints[i, 1:3], endpoints[chose_point, 1:3], 1, 1)
 
-        #     dis[i, :] = copy.deepcopy(max_value)
-        #     dis[:, i] = copy.deepcopy(max_value)
-        #     dis[chose_point, :] = copy.deepcopy(max_value)
-        #     dis[:, chose_point] = copy.deepcopy(max_value)
-        #     remains.remove(i)
-        #     remains.remove(chose_point)
+            dis[i, :] = copy.deepcopy(max_value)
+            dis[:, i] = copy.deepcopy(max_value)
+            dis[chose_point, :] = copy.deepcopy(max_value)
+            dis[:, chose_point] = copy.deepcopy(max_value)
+            remains.remove(i)
+            remains.remove(chose_point)
+
 
     image_final = np.zeros_like(image_combined)
     num_label, labels = cv2.connectedComponents(image1)
@@ -387,20 +415,7 @@ def endpoints(image_path, pith_folder, output_folder):
     longest_contour = np.argmax(np.array([len(contour) for contour in contours]))
     cv2.drawContours(image_final, contours, longest_contour, 1, 1)
 
-    # # plt.subplot(1, 3, 1)
-    # # plt.imshow(image, cmap='gray')
-    # # plt.subplot(1, 3, 2)
-    # # plt.imshow(labels, cmap='gray')
-    # for i in [32, 34]:
-    #     plt.plot(endpoints[i, 1], endpoints[i, 2], 'bo')
-    # # plt.subplot(1, 3, 3)
-    # plt.imshow(image_final)
-    # plt.plot(int(center[1]), int(center[0]), 'bo')
-    # plt.show()
-
     image_final[image_final == 1] = 255
-    # image1[image1 == 1] = 255
     tifffile.imwrite(os.path.join(output_folder, os.path.basename(image_path)), image_final.astype(np.uint8))
     
-    input_image = tifffile.imread(image_path.replace('predictions_segmentation_from_bigDistance', 'input'))
-    input_image[image_final == 255] = 0
+    return image_final

@@ -35,18 +35,18 @@ class CircleHeuristicFunction(Heuristic):
         if (len(current_point) == 0 or len(goal_point) == 0) or (len(current_point) != len(goal_point)):
             raise ValueError
 
-        # h0 = np.sqrt(np.sum((current_point - goal_point) ** 2))
-        h1 = np.sqrt((current_point[1] - goal_point[1]) ** 2)
+        h0 = np.sqrt(np.sum((current_point - goal_point) ** 2))
+        # h1 = np.sqrt((current_point[1] - goal_point[1]) ** 2)
 
-        currentRadius = (h1 / (self.radius[0] + self.radius[1])) * (self.radius[0] - self.radius[1]) + self.radius[1]
+        # currentRadius = (h1 / (self.radius[0] + self.radius[1])) * (self.radius[0] - self.radius[1]) + self.radius[1]
 
-        h2 = np.abs(currentRadius - np.sqrt(np.sum((self.center - current_point) ** 2)))
-        h3 = np.abs(np.sum((current_point - goal_point) * (current_point - self.startPoint)))
+        # h2 = np.abs(currentRadius - np.sqrt(np.sum((self.center - current_point) ** 2)))
+        # h3 = np.abs(np.sum((current_point - goal_point) * (current_point - self.startPoint)))
 
-        if h2 > 0.2 * currentRadius and self.image[current_point[0], current_point[1]] < 1:
-            cost = h1 + h2 ** 2 + h3
-        else:
-            cost = h1
+        # if h2 > 0.2 * currentRadius and self.image[current_point[0], current_point[1]] < 1:
+        #     cost = h1 + h2 ** 2 + h3
+        # else:
+        cost = h0
 
         return cost
     
@@ -90,19 +90,6 @@ class TreeRingSegmentation:
         predictionRing = tiles_manager.tiles_to_image(predictionRing)
 
         return predictionRing
-    
-
-    def postprocessRing(self, modelPostprocess):
-        predictionRing = cv2.resize(self.predictionRing.astype(np.uint8), (256, 256))
-        postPredictionRing = modelPostprocess.predict(predictionRing[None, :, :, None], batch_size=1, verbose=0)
-        postPredictionRing = cv2.resize(postPredictionRing[0, :, :, 0].astype(np.uint8), (self.shape[1], self.shape[0]))
-        # plt.subplot(121)
-        # plt.imshow(predictionRing)
-        # plt.subplot(122)
-        # plt.imshow(postPredictionRing)
-        # plt.show()
-        # raise ValueError
-        return postPredictionRing
     
 
     def cropAndPredictPith(self, modelPith, image, center, cropSize, n_iters=0):
@@ -365,24 +352,7 @@ class TreeRingSegmentation:
         image_white[image_white == 1] = 255
 
         return image_white
-
-
-    def resizeImg(self, image, center, inverse=False):
-        if not inverse:
-            maxLength = max(image.shape[0] - center[0], center[0], image.shape[1] - center[1], center[1])
-            resizedImage = np.zeros((2 * maxLength, 2 * maxLength))
-            resizedImage[:maxLength, :maxLength] = cv2.resize(image[:center[0], :center[1]], (maxLength, maxLength))
-            resizedImage[maxLength:, :maxLength] = cv2.resize(image[center[0]:, :center[1]], (maxLength, maxLength))
-            resizedImage[:maxLength, maxLength:] = cv2.resize(image[:center[0], center[1]:], (maxLength, maxLength))
-            resizedImage[maxLength:, maxLength:] = cv2.resize(image[center[0]:, center[1]:], (maxLength, maxLength))
-        else:
-            maxLength = int(image.shape[0] / 2)
-            resizedImage = np.zeros(self.shapeOriginal)
-            resizedImage[:center[0], :center[1]] = cv2.resize(image[:maxLength, :maxLength], (center[1], center[0]))
-            resizedImage[center[0]:, :center[1]] = cv2.resize(image[maxLength:, :maxLength], (center[1], self.shapeOriginal[0] - center[0]))
-            resizedImage[:center[0], center[1]:] = cv2.resize(image[:maxLength, maxLength:], (self.shapeOriginal[1] - center[1], center[0]))
-            resizedImage[center[0]:, center[1]:] = cv2.resize(image[maxLength:, maxLength:], (self.shapeOriginal[1] - center[1], self.shapeOriginal[0] - center[0]))
-        return resizedImage
+    
     
 
     def segmentImage(self, modelRing, modelPith, image):
@@ -405,27 +375,32 @@ class TreeRingSegmentation:
 class Evaluation:
 
     
-    def __init__(self, mask, prediction):
+    def __init__(self, mask, prediction, gtRings=None, predictedRings=None):
         self.mask = mask
         self.prediction = prediction
+        self.predictedRings = predictedRings
+        self.gtRings = gtRings
+        
         self.createRings()
         self.createSeg()
 
 
     def createRings(self):
-        self.prediction[np.bitwise_not(skeletonize(self.prediction))] = 0
-        num_labels, labeled_mask = cv2.connectedComponents(self.prediction)
-        self.predictedRings = []
-        for i in range(1, num_labels):
-            predictedRing = np.transpose(np.array(np.where(labeled_mask == i)))
-            self.predictedRings.append(predictedRing[:, ::-1])
+        if self.predictedRings is None:
+            self.prediction[np.bitwise_not(skeletonize(self.prediction))] = 0
+            num_labels, labeled_mask = cv2.connectedComponents(self.prediction)
+            self.predictedRings = []
+            for i in range(1, num_labels):
+                predictedRing = np.transpose(np.array(np.where(labeled_mask == i)))
+                self.predictedRings.append(predictedRing[:, ::-1])
 
-        self.mask[np.bitwise_not(skeletonize(self.mask))] = 0
-        num_labels, labeled_mask = cv2.connectedComponents(self.mask)
-        self.gtRings = []
-        for i in range(1, num_labels):
-            gtRing = np.transpose(np.array(np.where(labeled_mask == i)))
-            self.gtRings.append(gtRing[:, ::-1])
+        if self.gtRings is None:
+            self.mask[np.bitwise_not(skeletonize(self.mask))] = 0
+            num_labels, labeled_mask = cv2.connectedComponents(self.mask)
+            self.gtRings = []
+            for i in range(1, num_labels):
+                gtRing = np.transpose(np.array(np.where(labeled_mask == i)))
+                self.gtRings.append(gtRing[:, ::-1])
 
 
     def createSeg(self):
@@ -441,7 +416,7 @@ class Evaluation:
 
 
     def evaluateHausdorff(self):
-        return hausdorff_distance(self.mask, self.prediction)
+        return hausdorff_distance(self.mask, self.prediction, method='modified')
 
 
     @staticmethod

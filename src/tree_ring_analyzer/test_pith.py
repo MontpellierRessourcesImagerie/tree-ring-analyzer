@@ -17,10 +17,10 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 
 if __name__ == "__main__":
-   input_folder = '/home/khietdang/Documents/khiet/treeRing/input'
-   prediction_folder = '/home/khietdang/Documents/khiet/treeRing/predictions_bigDisRingAugGrayNormal16'
+   input_folder = '/home/khietdang/Documents/khiet/treeRing/Luidmila/50 tilias'
+   prediction_folder = '/home/khietdang/Documents/khiet/treeRing/Luidmila/predictions_50 tilias_bigDisRingAugGrayNormal16'
    checkpoint = '/home/khietdang/Documents/khiet/tree-ring-analyzer/models/pithGrayNormal16.h5'
-   output_folder = f'/home/khietdang/Documents/khiet/treeRing/predictions_{os.path.basename(checkpoint)[:-3]}'
+   output_folder = f'/home/khietdang/Documents/khiet/treeRing/Luidmila/predictions_50 tilias_{os.path.basename(checkpoint)[:-3]}'
    os.makedirs(output_folder, exist_ok=True)
    list_input = glob.glob(os.path.join(input_folder, '*.tif'))
    batch_size = 8

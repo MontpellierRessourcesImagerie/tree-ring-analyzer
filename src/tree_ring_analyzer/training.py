@@ -21,18 +21,18 @@ if __name__ == '__main__':
     tf.random.set_seed(seed)
 
     unet_model = Unet(input_size=input_size,
-                               filter_num=[64, 128, 256, 512, 1024],
+                               filter_num=[7, 14, 28, 56, 112],
                                n_labels=1,
                                output_activation='linear',
                               #  output_activation='sigmoid',
-                               attention=True,
+                               attention=False,
                                ).model
 
     train = Training(train_input_path, 
                      train_mask_path,
                      val_input_path,
                      val_mask_path,
-                     name='bigDisRingAugGray64',
+                     name='bigDisRingAugGrayNormal',
                      loss='mse',
                      # loss=bce_dice_loss(bce_coef=0.5),
                     numEpochs=100,
