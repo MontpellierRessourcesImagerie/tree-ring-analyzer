@@ -18,13 +18,14 @@ import tifffile
 
 def activeContour(image_path, pith_path, output_path):
     image = tifffile.imread(image_path)
-    image = binary_dilation(image, iterations=30).astype(np.uint8)
+    if np.max(image) != 255:
+        image = (image - np.min(image)) * 255 / (np.max(image) - np.min(image))
+    else:
+        image = binary_dilation(image, iterations=30).astype(np.uint8)
 
     shapeOriginal = image.shape
     image = cv2.resize(image, (int(image.shape[1] / 5), int(image.shape[0] / 5)))
-    image[image==1] = 255
     
-
     pith = tifffile.imread(os.path.join(pith_path, os.path.basename(image_path)))
     pith_whole = cv2.resize(pith, (image.shape[1], image.shape[0]))
     pith_whole[pith_whole >= 0.5] = 1
@@ -58,21 +59,21 @@ def activeContour(image_path, pith_path, output_path):
             boundary_condition='periodic'
         )
 
-        radius = np.mean(np.sqrt((center[0] - snake[:, 0]) ** 2 + (center[1] - snake[:, 1]) ** 2))
+        # radius = np.mean(np.sqrt((center[0] - snake[:, 0]) ** 2 + (center[1] - snake[:, 1]) ** 2))
 
-        s = np.linspace(0, 2 * np.pi, int(np.pi * radius * 2))
-        r = center[1] + radius * np.sin(s)
-        c = center[0] + radius * np.cos(s)
-        init = np.array([r, c]).T
-        snake = active_contour(
-            image,
-            init,
-            alpha=radius / 100,
-            beta=10,
-            gamma=0.001,
-            max_num_iter=100,
-            boundary_condition='periodic'
-        )
+        # s = np.linspace(0, 2 * np.pi, int(np.pi * radius * 2))
+        # r = center[1] + radius * np.sin(s)
+        # c = center[0] + radius * np.cos(s)
+        # init = np.array([r, c]).T
+        # snake = active_contour(
+        #     image,
+        #     init,
+        #     alpha=radius / 100,
+        #     beta=10,
+        #     gamma=0.001,
+        #     max_num_iter=100,
+        #     boundary_condition='periodic'
+        # )
 
         rings.append((snake[:, ::-1] * 5).astype(np.int32))
 
@@ -97,7 +98,7 @@ def activeContour(image_path, pith_path, output_path):
 
     image_final[image_final == 1] = 255
     tifffile.imwrite(os.path.join(output_path, os.path.basename(image_path)), image_final.astype(np.uint8))
-    return image_final, rings
+    return image_final.astype(np.uint8), rings
 
 
 

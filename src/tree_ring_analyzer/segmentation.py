@@ -36,17 +36,16 @@ class CircleHeuristicFunction(Heuristic):
             raise ValueError
 
         h0 = np.sqrt(np.sum((current_point - goal_point) ** 2))
-        # h1 = np.sqrt((current_point[1] - goal_point[1]) ** 2)
 
-        # currentRadius = (h1 / (self.radius[0] + self.radius[1])) * (self.radius[0] - self.radius[1]) + self.radius[1]
+        currentRadius = (h0 / (self.radius[0] + self.radius[1])) * (self.radius[0] - self.radius[1]) + self.radius[1]
 
-        # h2 = np.abs(currentRadius - np.sqrt(np.sum((self.center - current_point) ** 2)))
-        # h3 = np.abs(np.sum((current_point - goal_point) * (current_point - self.startPoint)))
+        h1 = np.abs(currentRadius - np.sqrt(np.sum((self.center - current_point) ** 2)))
+        h2 = np.abs(np.sum((current_point - goal_point) * (current_point - self.startPoint)))
 
-        # if h2 > 0.2 * currentRadius and self.image[current_point[0], current_point[1]] < 1:
-        #     cost = h1 + h2 ** 2 + h3
-        # else:
-        cost = h0
+        if h1 > 0.2 * currentRadius and self.image[current_point[0], current_point[1]] < 1:
+            cost = h0 + h2 + h1 ** 2
+        else:
+            cost = h0
 
         return cost
     
@@ -434,6 +433,7 @@ class Evaluation:
             for j in range(len(gt_uniques)):
                 b = gt_uniques[j]
                 iou_matrix[i, j] = self.calculateIoU(self.predictedSeg == a, self.gtSeg == b)
+        print(iou_matrix)
 
         row_ind, col_ind = linear_sum_assignment(iou_matrix, maximize=True)
         ious = iou_matrix[row_ind, col_ind]

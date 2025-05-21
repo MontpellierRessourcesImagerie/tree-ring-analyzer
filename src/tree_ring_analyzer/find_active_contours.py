@@ -9,12 +9,12 @@ import numpy as np
 
 
 
-ring_path = '/home/khietdang/Documents/khiet/treeRing/MO_bigDisRingAugGrayNormal16'
+ring_path = '/home/khietdang/Documents/khiet/treeRing/predictions_bigDisRingAugGrayNormal16'
 pith_path = '/home/khietdang/Documents/khiet/treeRing/predictions_pithGrayNormal16'
-output_path = '/home/khietdang/Documents/khiet/treeRing/output_MOA'
+output_path = '/home/khietdang/Documents/khiet/treeRing/output_A'
 input_path = '/home/khietdang/Documents/khiet/treeRing/input'
 mask_path = '/home/khietdang/Documents/khiet/treeRing/masks'
-csv_file = '/home/khietdang/Documents/khiet/treeRing/doc/result_MOA.csv'
+csv_file = '/home/khietdang/Documents/khiet/treeRing/doc/result_A.csv'
 
 with open(csv_file, 'w') as file:
     writer = csv.writer(file)
