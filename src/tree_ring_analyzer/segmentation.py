@@ -433,7 +433,6 @@ class Evaluation:
             for j in range(len(gt_uniques)):
                 b = gt_uniques[j]
                 iou_matrix[i, j] = self.calculateIoU(self.predictedSeg == a, self.gtSeg == b)
-        print(iou_matrix)
 
         row_ind, col_ind = linear_sum_assignment(iou_matrix, maximize=True)
         ious = iou_matrix[row_ind, col_ind]
