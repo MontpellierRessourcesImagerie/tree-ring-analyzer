@@ -5,7 +5,7 @@ from sklearn.model_selection import train_test_split
 import shutil
 import multiprocessing
 from multiprocessing import Pool
-from tree_ring_analyzer.dl.preprocessing import savePith, createFolder, splitRingsAndPith, saveTile
+from tree_ring_analyzer.dl.preprocessing import savePith, createFolder, splitRingsAndPith, saveTile, saveTileHoles
 import cv2
 import matplotlib.pyplot as plt
 import numpy as np
@@ -40,7 +40,7 @@ if __name__ == '__main__':
         shutil.rmtree(tile_path)
     createFolder(tile_path)
 
-    for mask_path in masks_list[48:]:
+    for mask_path in masks_list:
         print(mask_path)
         if mask_path.endswith('.tif'):
             mask = tifffile.imread(mask_path)
@@ -54,8 +54,6 @@ if __name__ == '__main__':
         pith, other_rings_dis = splitRingsAndPith(mask)
         thres = np.max(other_rings_dis)
 
-        # tifffile.imwrite(os.path.join(big_dis_path, os.path.basename(mask_path)), other_rings_dis)
-
         if mask_path in train:
             save_type = 'train'
             num = 300
@@ -67,20 +65,22 @@ if __name__ == '__main__':
             num = 1
 
         if mask_path in test or mask_path in val:
-            savePith(mask_path, pith, image, 0, pith_path, save_type, False, pithWhole)
-            saveTile(mask_path, other_rings_dis, image, 0, tile_path, save_type, False, thres)
+            # savePith(mask_path, pith, image, 0, pith_path, save_type, False, pithWhole)
+            # saveTile(mask_path, other_rings_dis, image, 0, tile_path, save_type, False, thres)
+            saveTileHoles(mask_path, other_rings_dis, image, 0, tile_path, save_type, False, thres)
         else:
-            data = []
-            for i in range(0, num):
-                data.append((mask_path, pith, image, i, pith_path, save_type, True, pithWhole))
+            # data = []
+            # for i in range(0, num):
+            #     data.append((mask_path, pith, image, i, pith_path, save_type, True, pithWhole))
 
-            with Pool(int(multiprocessing.cpu_count())) as pool:
-                pool.starmap(savePith, data)
+            # with Pool(int(multiprocessing.cpu_count())) as pool:
+            #     pool.starmap(savePith, data)
 
             data = []
             for i in range(0, num):
                 data.append((mask_path, other_rings_dis, image, i, tile_path, save_type, True, thres))
 
             with Pool(int(multiprocessing.cpu_count() * 0.5)) as pool:
-                pool.starmap(saveTile, data)
+                # pool.starmap(saveTile, data)
+                pool.starmap(saveTileHoles, data)
 

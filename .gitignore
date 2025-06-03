@@ -88,3 +88,6 @@ src/microglia_analyzer/models/
 models
 history
 *.png
+
+src/tree_ring_analyzer/plot_fig.py
+src/tree_ring_analyzer/try.py

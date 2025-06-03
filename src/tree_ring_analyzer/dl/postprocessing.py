@@ -18,10 +18,7 @@ import tifffile
 
 def activeContour(image_path, pith_path, output_path):
     image = tifffile.imread(image_path)
-    if np.max(image) != 255:
-        image = (image - np.min(image)) * 255 / (np.max(image) - np.min(image))
-    else:
-        image = binary_dilation(image, iterations=30).astype(np.uint8)
+    image = (image - np.min(image)) * 255 / (np.max(image) - np.min(image))
 
     shapeOriginal = image.shape
     image = cv2.resize(image, (int(image.shape[1] / 5), int(image.shape[0] / 5)))
@@ -59,27 +56,14 @@ def activeContour(image_path, pith_path, output_path):
             boundary_condition='periodic'
         )
 
-        # radius = np.mean(np.sqrt((center[0] - snake[:, 0]) ** 2 + (center[1] - snake[:, 1]) ** 2))
 
-        # s = np.linspace(0, 2 * np.pi, int(np.pi * radius * 2))
-        # r = center[1] + radius * np.sin(s)
-        # c = center[0] + radius * np.cos(s)
-        # init = np.array([r, c]).T
-        # snake = active_contour(
-        #     image,
-        #     init,
-        #     alpha=radius / 100,
-        #     beta=10,
-        #     gamma=0.001,
-        #     max_num_iter=100,
-        #     boundary_condition='periodic'
-        # )
-
-        rings.append((snake[:, ::-1] * 5).astype(np.int32))
-
-        radius = np.min(np.sqrt((center[0] - snake[:, 0]) ** 2 + (center[1] - snake[:, 1]) ** 2)) - int(0.05 * image.shape[0])
+        radius = np.min(np.sqrt((center[0] - snake[:, 0]) ** 2 + (center[1] - snake[:, 1]) ** 2))
+        polygon_value = cv2.pointPolygonTest(snake[:, None, ::-1].astype(np.int32), (center[1], center[0]), True)
+        if radius > rad_min and polygon_value > 0:
+            rings.append((snake[:, ::-1] * 5).astype(np.int32))
+            radius = radius - int(0.025 * image.shape[0])
         
-        if radius <= rad_min or i >= 5:
+        if radius <= rad_min or i >= 5 or polygon_value < 0:
             break
 
         i += 1
@@ -254,8 +238,6 @@ def angle_at_point(BA, B, C):
 def choose_point(i, dis, dis_center, endpoints, remains, max_value, image, thresh, center):
     if np.all(dis[i, :] == max_value):
         return None
-    if i == 32:
-        print('abc')
     chose_point = np.argmin(dis[i, :])
     img_try = np.zeros_like(image)
     cv2.line(img_try, endpoints[i, 1:3], endpoints[chose_point, 1:3], 1, 1)

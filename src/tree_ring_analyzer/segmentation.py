@@ -43,7 +43,7 @@ class CircleHeuristicFunction(Heuristic):
         h2 = np.abs(np.sum((current_point - goal_point) * (current_point - self.startPoint)))
 
         if h1 > 0.2 * currentRadius and self.image[current_point[0], current_point[1]] < 1:
-            cost = h0 + h2 + h1 ** 2
+            cost = h0 + h2
         else:
             cost = h0
 
@@ -260,14 +260,14 @@ class TreeRingSegmentation:
             length1 = copy.deepcopy(length2)
             length2 = copy.deepcopy(a)
 
-        # plt.figure(figsize=(10, 10))
-        # plt.imshow(prediction_ring)
-        # for i in range(0, len(peaks1), 1):
-        #     plt.plot(peaks1[i], dark_point, 'ro')
-        # for i in range(0, len(peaks2), 1):
-        #     plt.plot(peaks2[i], dark_point, 'bo')
-        # plt.show()
-        # plt.close()
+        plt.figure(figsize=(10, 10))
+        plt.imshow(prediction_ring)
+        for i in range(0, len(peaks1), 1):
+            plt.plot(peaks1[i], dark_point, 'ro')
+        for i in range(0, len(peaks2), 1):
+            plt.plot(peaks2[i], dark_point, 'bo')
+        plt.show()
+        plt.close()
         # raise ValueError
 
         ## Catch up the pairs of start points and goal points

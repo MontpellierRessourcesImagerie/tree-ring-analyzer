@@ -10,6 +10,7 @@ import glob
 import copy
 from skimage.filters import threshold_otsu
 from tree_ring_analyzer.dl.train import bce_dice_loss
+from tree_ring_analyzer.segmentation import TreeRingSegmentation
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
@@ -30,24 +31,15 @@ if __name__ == "__main__":
       im_data = tifffile.imread(im_name)
       im_data = (0.299 * im_data[:, :, 0] + 0.587 * im_data[:, :, 1] + 0.114 * im_data[:, :, 2])[:, :, None]
       prediction_ring = tifffile.imread(os.path.join(prediction_folder, os.path.basename(im_name)))
-      shape = im_data.shape[0], im_data.shape[1]
-
-      ret = threshold_otsu(prediction_ring)
-      ring_indices = np.where(prediction_ring > ret)
-      center = int(np.mean(ring_indices[0])), int(np.mean(ring_indices[1]))
       
-      crop_size = int(0.1 * max(shape[1], shape[0])) * 2
-      crop_img = im_data[center[0] - int(crop_size / 2):center[0] + int(crop_size / 2),
-                        center[1] - int(crop_size / 2):center[1] + int(crop_size / 2)]
+      tree_ring_segmentation = TreeRingSegmentation(resize=5, pithWhole=False)
+      tree_ring_segmentation.shape = im_data.shape[0], im_data.shape[1]
+      tree_ring_segmentation.predictionRing = prediction_ring
 
-      crop_img = cv2.resize(crop_img, (256, 256))[None, :, :, None]
-      crop_img = crop_img / 255
-      pred_pith = model.predict(crop_img)
+      tree_ring_segmentation.createMask(im_data)
 
-      pred_final = np.zeros((im_data.shape[0], im_data.shape[1]))
-      pred_pith = cv2.resize(pred_pith[0], (crop_size, crop_size))
-      pred_final[center[0] - int(crop_size / 2):center[0] + int(crop_size / 2),
-                        center[1] - int(crop_size / 2):center[1] + int(crop_size / 2)] = copy.deepcopy(pred_pith)
+      tree_ring_segmentation.predictPith(model, im_data)
+      pred_final = tree_ring_segmentation.pith
 
       tifffile.imwrite(os.path.join(output_folder, os.path.basename(im_name)), pred_final)
 
