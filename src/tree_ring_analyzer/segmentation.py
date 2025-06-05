@@ -260,14 +260,14 @@ class TreeRingSegmentation:
             length1 = copy.deepcopy(length2)
             length2 = copy.deepcopy(a)
 
-        plt.figure(figsize=(10, 10))
-        plt.imshow(prediction_ring)
-        for i in range(0, len(peaks1), 1):
-            plt.plot(peaks1[i], dark_point, 'ro')
-        for i in range(0, len(peaks2), 1):
-            plt.plot(peaks2[i], dark_point, 'bo')
-        plt.show()
-        plt.close()
+        # plt.figure(figsize=(10, 10))
+        # plt.imshow(prediction_ring)
+        # for i in range(0, len(peaks1), 1):
+        #     plt.plot(peaks1[i], dark_point, 'ro')
+        # for i in range(0, len(peaks2), 1):
+        #     plt.plot(peaks2[i], dark_point, 'bo')
+        # plt.show()
+        # plt.close()
         # raise ValueError
 
         ## Catch up the pairs of start points and goal points
@@ -345,7 +345,8 @@ class TreeRingSegmentation:
             j = results_sorted[i]
             ring = np.append(cor[2 * j], cor[2 * j + 1][::-1], axis=0)
             cv2.drawContours(_image, [ring], 0, 1, self.thickness)
-            if np.sum(np.bitwise_and(_image, image_white)) == 0:
+            if np.sum(np.bitwise_and(_image, image_white)) == 0 \
+            and cv2.pointPolygonTest(ring, (self.center[1] * self.resize, self.center[0] * self.resize), True) > 0:
                 image_white = np.bitwise_or(image_white, _image)
 
         image_white[image_white == 1] = 255

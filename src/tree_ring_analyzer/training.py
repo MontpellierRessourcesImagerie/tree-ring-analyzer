@@ -4,6 +4,7 @@ import tensorflow as tf
 from tensorflow import keras
 import numpy as np
 import random
+from cldice_loss.keras.cldice import soft_dice_cldice_loss
 
 
 
@@ -27,8 +28,8 @@ if __name__ == '__main__':
                   train_mask_path,
                   val_input_path,
                   val_mask_path,
-                  name='bigDisRingAugGrayNormalHoles16',
-                  loss='mse',
+                  name='bigDisRingAugGrayNormalHoles16Cldice05',
+                  loss=soft_dice_cldice_loss(),
                   # loss=bce_dice_loss(bce_coef=0.5),
                   numEpochs=100,
                   channel = input_size[-1]

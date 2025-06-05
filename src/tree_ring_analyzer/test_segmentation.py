@@ -13,10 +13,10 @@ import csv
 
 
 if __name__ == '__main__':
-    input_folder = '/home/khietdang/Documents/khiet/treeRing/Luidmila/input'
+    input_folder = '/home/khietdang/Documents/khiet/treeRing/input'
     mask_folder = '/home/khietdang/Documents/khiet/treeRing/masks'
-    output_folder = '/home/khietdang/Documents/khiet/treeRing/output_H02'
-    checkpoint_ring_path = '/home/khietdang/Documents/khiet/tree-ring-analyzer/models/bigDisRingAugGrayNormalHoles16.keras'
+    output_folder = '/home/khietdang/Documents/khiet/treeRing/output_GH'
+    checkpoint_ring_path = '/home/khietdang/Documents/khiet/tree-ring-analyzer/models/bigDisRingAugGrayNormalHolesGaussian16.keras'
     checkpoint_pith_path = '/home/khietdang/Documents/khiet/tree-ring-analyzer/models/pithGrayNormal16.keras'
     csv_file = '/home/khietdang/Documents/khiet/treeRing/doc/result_our.csv'
     pithWhole = False
@@ -30,10 +30,10 @@ if __name__ == '__main__':
     modelPith = tf.keras.models.load_model(checkpoint_pith_path, custom_objects={'bcl': bce_dice_loss(bce_coef=0.5)})
     channel = modelPith.get_config()['layers'][0]['config']['batch_shape'][-1]
 
-    # image_list = glob.glob(os.path.join(input_folder, '*.tif')) + glob.glob(os.path.join(input_folder, '*.jpg'))
-    # _, image_list = train_test_split(image_list, test_size=0.2, shuffle=True, random_state=42)
-    # image_list = sorted(image_list)
-    image_list = [os.path.join(input_folder, '21(5)_x50_8 µm.tif')]
+    image_list = glob.glob(os.path.join(input_folder, '*.tif')) + glob.glob(os.path.join(input_folder, '*.jpg'))
+    _, image_list = train_test_split(image_list, test_size=0.2, shuffle=True, random_state=42)
+    image_list = sorted(image_list)
+    # image_list = [os.path.join(input_folder, '16(2)_x50_8 µm.tif')]
 
     hausdorff = []
     mAR = []
@@ -48,7 +48,7 @@ if __name__ == '__main__':
             image = tifffile.imread(image_path)
         elif image_path.endswith('.jpg'):
             image = cv2.imread(image_path)
-        # mask = tifffile.imread(os.path.join(mask_folder, os.path.basename(image_path)))
+        mask = tifffile.imread(os.path.join(mask_folder, os.path.basename(image_path)))
 
         if channel == 1:
             image = (0.299 * image[:, :, 0] + 0.587 * image[:, :, 1] + 0.114 * image[:, :, 2])[:, :, None]
@@ -56,29 +56,29 @@ if __name__ == '__main__':
         treeRingSegment = TreeRingSegmentation(resize=5, pithWhole=pithWhole)
         treeRingSegment.segmentImage(modelRing, modelPith, image)
         
-    #     result = treeRingSegment.maskRings
+        result = treeRingSegment.maskRings
 
-    #     tifffile.imwrite(os.path.join(output_folder, os.path.basename(image_path)), result.astype(np.uint8))
+        tifffile.imwrite(os.path.join(output_folder, os.path.basename(image_path)), result.astype(np.uint8))
     #     # tifffile.imwrite(os.path.join('/home/khietdang/Documents/khiet/treeRing/Luidmila/predictions_ring', 
     #     # os.path.basename(image_path)), treeRingSegment.predictionRing)
 
-    #     evaluation = Evaluation(mask, treeRingSegment.maskRings)
-    #     hausdorff.append(evaluation.evaluateHausdorff())
-    #     mAR.append(evaluation.evaluatemAR())
-    #     arand.append(evaluation.evaluateARAND())
-    #     _recall, _precision, _f1, _acc = evaluation.evaluateRPFA()
-    #     recall.append(_recall)
-    #     precision.append(_precision)
-    #     f1.append(_f1)
-    #     acc.append(_acc)
+        evaluation = Evaluation(mask, treeRingSegment.maskRings)
+        hausdorff.append(evaluation.evaluateHausdorff())
+        mAR.append(evaluation.evaluatemAR())
+        arand.append(evaluation.evaluateARAND())
+        _recall, _precision, _f1, _acc = evaluation.evaluateRPFA()
+        recall.append(_recall)
+        precision.append(_precision)
+        f1.append(_f1)
+        acc.append(_acc)
 
-    #     with open(csv_file, 'a') as file:
-    #         writer = csv.writer(file)
-    #         writer.writerow([os.path.basename(image_path).split('.')[0], hausdorff[-1], mAR[-1], arand[-1],
-    #                          recall[-1], precision[-1], f1[-1], acc[-1]])
+        with open(csv_file, 'a') as file:
+            writer = csv.writer(file)
+            writer.writerow([os.path.basename(image_path).split('.')[0], hausdorff[-1], mAR[-1], arand[-1],
+                             recall[-1], precision[-1], f1[-1], acc[-1]])
 
-    # with open(csv_file, 'a') as file:
-    #     writer = csv.writer(file)
-    #     writer.writerow(['Average', np.mean(hausdorff), np.mean(mAR), np.mean(arand), np.mean(recall), np.mean(precision), np.mean(f1),
-    #                      np.mean(acc)])
+    with open(csv_file, 'a') as file:
+        writer = csv.writer(file)
+        writer.writerow(['Average', np.mean(hausdorff), np.mean(mAR), np.mean(arand), np.mean(recall), np.mean(precision), np.mean(f1),
+                         np.mean(acc)])
 

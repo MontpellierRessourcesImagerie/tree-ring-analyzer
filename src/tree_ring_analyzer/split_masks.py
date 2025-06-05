@@ -5,7 +5,7 @@ from sklearn.model_selection import train_test_split
 import shutil
 import multiprocessing
 from multiprocessing import Pool
-from tree_ring_analyzer.dl.preprocessing import savePith, createFolder, splitRingsAndPith, saveTile, saveTileHoles
+from tree_ring_analyzer.dl.preprocessing import savePith, createFolder, splitRingsAndPith, saveTile, saveTileHoles, saveTileHolesGaussian
 import cv2
 import matplotlib.pyplot as plt
 import numpy as np
@@ -68,6 +68,7 @@ if __name__ == '__main__':
             # savePith(mask_path, pith, image, 0, pith_path, save_type, False, pithWhole)
             # saveTile(mask_path, other_rings_dis, image, 0, tile_path, save_type, False, thres)
             saveTileHoles(mask_path, other_rings_dis, image, 0, tile_path, save_type, False, thres)
+            # saveTileHolesGaussian(mask_path, other_rings_dis, image, 0, tile_path, save_type, False, thres)
         else:
             # data = []
             # for i in range(0, num):
@@ -80,7 +81,8 @@ if __name__ == '__main__':
             for i in range(0, num):
                 data.append((mask_path, other_rings_dis, image, i, tile_path, save_type, True, thres))
 
-            with Pool(int(multiprocessing.cpu_count() * 0.5)) as pool:
+            with Pool(int(os.cpu_count() * 0.5)) as pool:
                 # pool.starmap(saveTile, data)
                 pool.starmap(saveTileHoles, data)
+                # pool.starmap(saveTileHolesGaussian, data)
 

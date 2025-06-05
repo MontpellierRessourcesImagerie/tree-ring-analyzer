@@ -1,10 +1,9 @@
-from scipy.ndimage import distance_transform_edt, binary_dilation
 import tifffile
 import numpy as np
 import os
 import copy
 import random
-from scipy.ndimage import distance_transform_edt, binary_dilation, rotate
+from scipy.ndimage import distance_transform_edt, binary_dilation, rotate, gaussian_filter
 import cv2
 from tree_ring_analyzer.tiles.tiler import ImageTiler2D
 import matplotlib.pyplot as plt
@@ -40,7 +39,7 @@ def augmentImagesHoles(img, mask):
         mask = np.rot90(mask, k=k)
         mask = np.flip(mask, axis=axis)
 
-    maskHoles =  copy.deepcopy(mask)
+    maskHoles = copy.deepcopy(mask)
     if random.random() > 0.67:
         num = np.random.randint(1, 11)
         one_indices = np.where(mask >= 1)
@@ -52,16 +51,51 @@ def augmentImagesHoles(img, mask):
             center = one_indices[0][chose_center], one_indices[1][chose_center]
             cv2.circle(img, (center[1], center[0]), radius, (255, 255, 255), -1)
             cv2.circle(maskHoles, (center[1], center[0]), radius, 0, -1)
+    
+    return img, mask, maskHoles
 
-        # plt.figure(figsize=(4, 2))
+
+def augmentImagesHolesGaussian(img, mask):
+    if random.random() > 0.67:
+        angle = np.random.randint(-20, 20)
+        img = rotate(img, angle, order=0, reshape=False)
+        mask = rotate(mask, angle, order=0, reshape=False)
+    if random.random() > 0.67:
+        k = np.random.randint(0, 4)
+        axis = np.random.randint(0, 1)
+        img = np.rot90(img, k=k)
+        img = np.flip(img, axis=axis)
+        mask = np.rot90(mask, k=k)
+        mask = np.flip(mask, axis=axis)
+
+    maskHoles = copy.deepcopy(mask)
+    if random.random() > 0.67:
+        new_image = np.zeros_like(mask, dtype=np.float32)
+        num = np.random.randint(1, 11)
+        one_indices = np.where(mask >= 1)
+        maskHoles = np.ascontiguousarray(maskHoles)
+        for i in range(num):
+            radius = np.random.randint(1, 128)
+            chose_center = np.random.randint(len(one_indices[0]))
+            center = one_indices[0][chose_center], one_indices[1][chose_center]
+
+            _new_image = np.ascontiguousarray(np.zeros_like(mask, dtype=np.float32))
+            cv2.circle(_new_image, (center[1], center[0]), radius, -0.5, -1)
+            cv2.circle(maskHoles, (center[1], center[0]), radius, 0, -1)
+
+            _new_image = gaussian_filter(_new_image, sigma=radius*random.random())
+            new_image += _new_image
+        
+        new_image += 1
+        img = img * new_image[:, :, None]
         # plt.subplot(121)
-        # plt.imshow(img)
+        # plt.imshow(img.astype(np.uint8))
         # plt.subplot(122)
         # plt.imshow(mask)
         # plt.show()
         # raise ValueError
     
-    return img, mask, maskHoles
+    return img.astype(np.uint8), mask, maskHoles
         
 
 
@@ -134,6 +168,31 @@ def saveTileHoles(mask_path, mask, image, i, output_path, save_type, augment=Tru
     img_aug = copy.deepcopy(image)
     if augment:
         img_aug, mask_aug, maskHoles = augmentImagesHoles(img_aug, mask_aug)
+    else:
+        maskHoles = copy.deepcopy(mask_aug)
+
+    tiles_manager = ImageTiler2D(256, 60, mask_aug.shape)
+    img_tiles = np.array(tiles_manager.image_to_tiles(img_aug, use_normalize=True))
+    mask_tiles = np.array(tiles_manager.image_to_tiles(mask_aug, use_normalize=False))
+    maskHole_tiles = np.array(tiles_manager.image_to_tiles(maskHoles, use_normalize=False))
+    
+    for j in range(0, len(img_tiles)):
+        maskHole_tile = maskHole_tiles[j]
+        if np.max(maskHole_tile) >= thres:
+            img_tile = img_tiles[j]
+            mask_tile = mask_tiles[j]
+
+            tifffile.imwrite(os.path.join(output_path, save_type, 'x', os.path.basename(mask_path)[:-4] + f'_aug{i}_{j}.tif'),
+                            img_tile)
+            tifffile.imwrite(os.path.join(output_path, save_type, 'y', os.path.basename(mask_path)[:-4] + f'_aug{i}_{j}.tif'),
+                            mask_tile)
+            
+
+def saveTileHolesGaussian(mask_path, mask, image, i, output_path, save_type, augment=True, thres=10):
+    mask_aug = copy.deepcopy(mask)
+    img_aug = copy.deepcopy(image)
+    if augment:
+        img_aug, mask_aug, maskHoles = augmentImagesHolesGaussian(img_aug, mask_aug)
     else:
         maskHoles = copy.deepcopy(mask_aug)
 
