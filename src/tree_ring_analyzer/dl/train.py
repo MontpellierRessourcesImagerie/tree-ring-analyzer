@@ -32,7 +32,6 @@ def read_images(img_path, label_path, channel):
     return img, seg
 
 
-
 @tf.keras.utils.register_keras_serializable()
 def dice_loss(y_true, y_pred):
     y_true = tf.cast(y_true, tf.float32)
@@ -40,6 +39,14 @@ def dice_loss(y_true, y_pred):
     intersection = tf.reduce_sum(y_true * y_pred)
     return 1 - (2. * intersection + 1) / (tf.reduce_sum(y_true) + tf.reduce_sum(y_pred) + 1)
 
+
+@tf.keras.utils.register_keras_serializable()
+def dice_dm_loss(y_true, y_pred):
+    y_true = tf.cast(y_true, tf.float32)
+    y_pred = tf.cast(y_pred, tf.float32)
+    epsilon = tf.keras.backend.epsilon()
+    intersection = tf.reduce_sum(tf.sqrt(tf.maximum(y_true * y_pred, epsilon)))
+    return 1 - (2. * intersection + 1) / (tf.reduce_sum(y_true) + tf.reduce_sum(y_pred) + 1)
 
 
 @tf.keras.utils.register_keras_serializable()
@@ -51,6 +58,14 @@ def bce_dice_loss(bce_coef=0.5):
         return bce_coef * bce + (1.0 - bce_coef) * dice
     return bcl
 
+
+@tf.keras.utils.register_keras_serializable()
+def dice_mse_loss(mse_coef=0.3):
+    def dml(y_true, y_pred):
+        dice = dice_dm_loss(y_true, y_pred)
+        mse = keras.losses.MeanSquaredError()(y_true, y_pred)
+        return dice + mse * mse_coef
+    return dml
 
 
 class Training:

@@ -1,5 +1,4 @@
 from tree_ring_analyzer.segmentation import TreeRingSegmentation, Evaluation
-from tree_ring_analyzer.dl.train import bce_dice_loss
 import tifffile
 import tensorflow as tf
 import matplotlib.pyplot as plt
@@ -15,8 +14,8 @@ import csv
 if __name__ == '__main__':
     input_folder = '/home/khietdang/Documents/khiet/treeRing/input'
     mask_folder = '/home/khietdang/Documents/khiet/treeRing/masks'
-    output_folder = '/home/khietdang/Documents/khiet/treeRing/output_GH'
-    checkpoint_ring_path = '/home/khietdang/Documents/khiet/tree-ring-analyzer/models/bigDisRingAugGrayNormalHolesGaussian16.keras'
+    output_folder = '/home/khietdang/Documents/khiet/treeRing/output_H01'
+    checkpoint_ring_path = '/home/khietdang/Documents/khiet/tree-ring-analyzer/models/bigDisRingAugGrayNormalHoles16.keras'
     checkpoint_pith_path = '/home/khietdang/Documents/khiet/tree-ring-analyzer/models/pithGrayNormal16.keras'
     csv_file = '/home/khietdang/Documents/khiet/treeRing/doc/result_our.csv'
     pithWhole = False
@@ -25,9 +24,10 @@ if __name__ == '__main__':
         writer = csv.writer(file)
         writer.writerow(['Image', 'Hausdorff Distance', 'mean Average Recall', 'ARAND', 'Recall', 'Precision', 'F1', 'Accuracy'])
 
-    modelRing = tf.keras.models.load_model(checkpoint_ring_path)
+    modelRing = tf.keras.models.load_model(checkpoint_ring_path, compile=False)
 
-    modelPith = tf.keras.models.load_model(checkpoint_pith_path, custom_objects={'bcl': bce_dice_loss(bce_coef=0.5)})
+    modelPith = tf.keras.models.load_model(checkpoint_pith_path, compile=False)
+
     channel = modelPith.get_config()['layers'][0]['config']['batch_shape'][-1]
 
     image_list = glob.glob(os.path.join(input_folder, '*.tif')) + glob.glob(os.path.join(input_folder, '*.jpg'))

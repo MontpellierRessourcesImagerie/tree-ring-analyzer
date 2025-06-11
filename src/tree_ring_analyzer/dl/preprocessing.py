@@ -7,6 +7,7 @@ from scipy.ndimage import distance_transform_edt, binary_dilation, rotate, gauss
 import cv2
 from tree_ring_analyzer.tiles.tiler import ImageTiler2D
 import matplotlib.pyplot as plt
+from skimage.morphology import skeletonize
 
 
 
@@ -154,13 +155,13 @@ def saveTile(mask_path, mask, image, i, output_path, save_type, augment=True, th
     
     for j in range(0, len(img_tiles)):
         mask_tile = mask_tiles[j]
-        if np.max(mask_tile) >= thres:
+        if np.max(mask_tile) >= thres and np.sum(mask_tile) >= 10:
             img_tile = img_tiles[j]
 
             tifffile.imwrite(os.path.join(output_path, save_type, 'x', os.path.basename(mask_path)[:-4] + f'_aug{i}_{j}.tif'),
                             img_tile)
             tifffile.imwrite(os.path.join(output_path, save_type, 'y', os.path.basename(mask_path)[:-4] + f'_aug{i}_{j}.tif'),
-                            mask_tile)
+                            mask_tile.astype(np.uint8))
             
 
 def saveTileHoles(mask_path, mask, image, i, output_path, save_type, augment=True, thres=10):
@@ -178,14 +179,14 @@ def saveTileHoles(mask_path, mask, image, i, output_path, save_type, augment=Tru
     
     for j in range(0, len(img_tiles)):
         maskHole_tile = maskHole_tiles[j]
-        if np.max(maskHole_tile) >= thres:
+        if np.max(maskHole_tile) >= thres and np.sum(maskHole_tile) >= 10:
             img_tile = img_tiles[j]
             mask_tile = mask_tiles[j]
 
             tifffile.imwrite(os.path.join(output_path, save_type, 'x', os.path.basename(mask_path)[:-4] + f'_aug{i}_{j}.tif'),
                             img_tile)
             tifffile.imwrite(os.path.join(output_path, save_type, 'y', os.path.basename(mask_path)[:-4] + f'_aug{i}_{j}.tif'),
-                            mask_tile)
+                            mask_tile.astype(np.uint8))
             
 
 def saveTileHolesGaussian(mask_path, mask, image, i, output_path, save_type, augment=True, thres=10):
@@ -203,14 +204,14 @@ def saveTileHolesGaussian(mask_path, mask, image, i, output_path, save_type, aug
     
     for j in range(0, len(img_tiles)):
         maskHole_tile = maskHole_tiles[j]
-        if np.max(maskHole_tile) >= thres:
+        if np.max(maskHole_tile) >= thres and np.sum(maskHole_tile) >= 10:
             img_tile = img_tiles[j]
             mask_tile = mask_tiles[j]
 
             tifffile.imwrite(os.path.join(output_path, save_type, 'x', os.path.basename(mask_path)[:-4] + f'_aug{i}_{j}.tif'),
                             img_tile)
             tifffile.imwrite(os.path.join(output_path, save_type, 'y', os.path.basename(mask_path)[:-4] + f'_aug{i}_{j}.tif'),
-                            mask_tile)
+                            mask_tile.astype(np.uint8))
 
 
 
@@ -224,7 +225,7 @@ def createFolder(path):
 
 
 
-def splitRingsAndPith(mask, iterations=10):
+def splitRingsAndPith(mask, iterations=10, distance=True, skeleton=False):
     _, labels = cv2.connectedComponents(mask)
 
     area = []
@@ -250,8 +251,12 @@ def splitRingsAndPith(mask, iterations=10):
     other_rings = copy.deepcopy(mask)
     other_rings[pith == 1] = 0
     other_rings[other_rings == 255] = 1
-    other_rings = binary_dilation(other_rings, iterations=iterations)
-    other_rings_dis = distance_transform_edt(other_rings).astype(np.float16)
+    if skeleton:
+        other_rings = skeletonize(other_rings)
+    if iterations:
+        other_rings = binary_dilation(other_rings, iterations=iterations)
+    if distance:
+        other_rings = distance_transform_edt(other_rings).astype(np.float16)
 
-    return pith, other_rings_dis.astype(np.uint8)
+    return pith, other_rings.astype(np.uint8)
 
