@@ -348,9 +348,9 @@ class Patch2D(object):
         ])
 
 if __name__ == "__main__":
-    input_folder = '/home/khietdang/Documents/khiet/treeRing/Luidmila/50 tilias'
-    checkpoint = '/home/khietdang/Documents/khiet/tree-ring-analyzer/models/bigDisRingAugGrayNormal16.keras'
-    output_folder = f'/home/khietdang/Documents/khiet/treeRing/Luidmila/predictions_50 tilias_{os.path.basename(checkpoint)[:-6]}'
+    input_folder = '/home/khietdang/Documents/khiet/treeRing/input'
+    checkpoint = '/home/khietdang/Documents/khiet/tree-ring-analyzer/models/bigDisRingAugGrayNormalHoles16.keras'
+    output_folder = f'/home/khietdang/Documents/khiet/treeRing/predictions_{os.path.basename(checkpoint)[:-6]}'
     os.makedirs(output_folder, exist_ok=True)
     list_input = glob.glob(os.path.join(input_folder, '*.tif'))
     patch_size = 256

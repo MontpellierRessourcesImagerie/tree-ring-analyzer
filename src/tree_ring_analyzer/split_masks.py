@@ -5,7 +5,7 @@ from sklearn.model_selection import train_test_split
 import shutil
 import multiprocessing
 from multiprocessing import Pool
-from tree_ring_analyzer.dl.preprocessing import savePith, createFolder, splitRingsAndPith, saveTile, saveTileHoles, saveTileHolesGaussian
+from tree_ring_analyzer.dl.preprocessing import savePith, createFolder, splitRingsAndPith, saveTile
 import cv2
 import matplotlib.pyplot as plt
 import numpy as np
@@ -19,8 +19,8 @@ if __name__ == '__main__':
     tile_path = '/home/khietdang/Documents/khiet/treeRing/tile_big_dis_otherrings'
     seed = 42
     pithWhole = False
-    holes = True
-    gaussian = True
+    whiteHoles = True
+    gaussianHoles = True
     dilate = 10
     distance = True
     skeleton = False
@@ -71,12 +71,7 @@ if __name__ == '__main__':
             if pith_path is not None:
                 savePith(mask_path, pith, image, 0, pith_path, save_type, False, pithWhole)
             if tile_path is not None:
-                if not holes:
-                    saveTile(mask_path, other_rings_dis, image, 0, tile_path, save_type, False, thres)
-                elif not gaussian:
-                    saveTileHoles(mask_path, other_rings_dis, image, 0, tile_path, save_type, False, thres)
-                else:
-                    saveTileHolesGaussian(mask_path, other_rings_dis, image, 0, tile_path, save_type, False, thres)
+                saveTile(mask_path, other_rings_dis, image, 0, tile_path, save_type, False, whiteHoles, gaussianHoles, thres)
         else:
             if pith_path is not None:
                 data = []
@@ -89,13 +84,8 @@ if __name__ == '__main__':
             if tile_path is not None:
                 data = []
                 for i in range(0, num):
-                    data.append((mask_path, other_rings_dis, image, i, tile_path, save_type, True, thres))
+                    data.append((mask_path, other_rings_dis, image, i, tile_path, save_type, True, whiteHoles, gaussianHoles, thres))
 
                 with Pool(int(multiprocessing.cpu_count() * 0.5)) as pool:
-                    if not holes:
-                        pool.starmap(saveTile, data)
-                    elif not gaussian:
-                        pool.starmap(saveTileHoles, data)
-                    else:
-                        pool.starmap(saveTileHolesGaussian, data)
+                    pool.starmap(saveTile, data)
 

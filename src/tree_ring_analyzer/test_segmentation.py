@@ -14,9 +14,9 @@ import csv
 if __name__ == '__main__':
     input_folder = '/home/khietdang/Documents/khiet/treeRing/input'
     mask_folder = '/home/khietdang/Documents/khiet/treeRing/masks'
-    output_folder = '/home/khietdang/Documents/khiet/treeRing/output_H01'
-    checkpoint_ring_path = '/home/khietdang/Documents/khiet/tree-ring-analyzer/models/bigDisRingAugGrayNormalHoles16.keras'
-    checkpoint_pith_path = '/home/khietdang/Documents/khiet/tree-ring-analyzer/models/pithGrayNormal16.keras'
+    output_folder = '/home/khietdang/Documents/khiet/treeRing/output_H0'
+    checkpoint_ring_path = '/home/khietdang/Documents/khiet/tree-ring-analyzer/models/bigDisRingAugGray.keras'
+    checkpoint_pith_path = '/home/khietdang/Documents/khiet/tree-ring-analyzer/models/pithGray.keras'
     csv_file = '/home/khietdang/Documents/khiet/treeRing/doc/result_our.csv'
     pithWhole = False
 
@@ -58,7 +58,7 @@ if __name__ == '__main__':
         
         result = treeRingSegment.maskRings
 
-        tifffile.imwrite(os.path.join(output_folder, os.path.basename(image_path)), result.astype(np.uint8))
+        # tifffile.imwrite(os.path.join(output_folder, os.path.basename(image_path)), result.astype(np.uint8))
     #     # tifffile.imwrite(os.path.join('/home/khietdang/Documents/khiet/treeRing/Luidmila/predictions_ring', 
     #     # os.path.basename(image_path)), treeRingSegment.predictionRing)
 

@@ -23,7 +23,7 @@ if __name__ == '__main__':
                   train_mask_path,
                   val_input_path,
                   val_mask_path,
-                  name='bigDisRingAugGrayHolesGaussian',
+                  name='bigDisRingAugGrayHoles',
                   loss='mse',
                   # loss=bce_dice_loss(bce_coef=0.5),
                   numEpochs=30,

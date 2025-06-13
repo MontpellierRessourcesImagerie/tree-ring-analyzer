@@ -11,94 +11,64 @@ from skimage.morphology import skeletonize
 
 
 
-def augmentImages(img, mask):
-    if random.random() > 0.5:
-        angle = np.random.randint(-20, 20)
-        img = rotate(img, angle, order=0, reshape=False)
-        mask = rotate(mask, angle, order=0, reshape=False)
-    if random.random() > 0.5:
-        k = np.random.randint(0, 4)
-        axis = np.random.randint(0, 1)
-        img = np.rot90(img, k=k)
-        img = np.flip(img, axis=axis)
-        mask = np.rot90(mask, k=k)
-        mask = np.flip(mask, axis=axis)
+def augmentImagesRotate(img, mask):
+    angle = np.random.randint(-20, 20)
+    img = rotate(img, angle, order=0, reshape=False)
+    mask = rotate(mask, angle, order=0, reshape=False)
 
     return img, mask
 
 
-def augmentImagesHoles(img, mask):
-    if random.random() > 0.67:
-        angle = np.random.randint(-20, 20)
-        img = rotate(img, angle, order=0, reshape=False)
-        mask = rotate(mask, angle, order=0, reshape=False)
-    if random.random() > 0.67:
-        k = np.random.randint(0, 4)
-        axis = np.random.randint(0, 1)
-        img = np.rot90(img, k=k)
-        img = np.flip(img, axis=axis)
-        mask = np.rot90(mask, k=k)
-        mask = np.flip(mask, axis=axis)
+def augmentImagesFlip(img, mask):
+    k = np.random.randint(0, 4)
+    axis = np.random.randint(0, 1)
+    img = np.rot90(img, k=k)
+    img = np.flip(img, axis=axis)
+    mask = np.rot90(mask, k=k)
+    mask = np.flip(mask, axis=axis)
 
+    return img, mask
+
+
+def augmentImagesHolesWhite(img, mask):
     maskHoles = copy.deepcopy(mask)
-    if random.random() > 0.67:
-        num = np.random.randint(1, 11)
-        one_indices = np.where(mask >= 1)
-        img = np.ascontiguousarray(img)
-        maskHoles = np.ascontiguousarray(maskHoles)
-        for i in range(num):
-            radius = np.random.randint(1, 128)
-            chose_center = np.random.randint(len(one_indices[0]))
-            center = one_indices[0][chose_center], one_indices[1][chose_center]
-            cv2.circle(img, (center[1], center[0]), radius, (255, 255, 255), -1)
-            cv2.circle(maskHoles, (center[1], center[0]), radius, 0, -1)
+    num = np.random.randint(1, 11)
+    one_indices = np.where(mask >= 1)
+    img = np.ascontiguousarray(img)
+    maskHoles = np.ascontiguousarray(maskHoles)
+    for i in range(num):
+        radius = np.random.randint(1, 128)
+        chose_center = np.random.randint(len(one_indices[0]))
+        center = one_indices[0][chose_center], one_indices[1][chose_center]
+        cv2.circle(img, (center[1], center[0]), radius, (255, 255, 255), -1)
+        cv2.circle(maskHoles, (center[1], center[0]), radius, 0, -1)
     
     return img, mask, maskHoles
 
 
 def augmentImagesHolesGaussian(img, mask):
-    if random.random() > 0.67:
-        angle = np.random.randint(-20, 20)
-        img = rotate(img, angle, order=0, reshape=False)
-        mask = rotate(mask, angle, order=0, reshape=False)
-    if random.random() > 0.67:
-        k = np.random.randint(0, 4)
-        axis = np.random.randint(0, 1)
-        img = np.rot90(img, k=k)
-        img = np.flip(img, axis=axis)
-        mask = np.rot90(mask, k=k)
-        mask = np.flip(mask, axis=axis)
-
     maskHoles = copy.deepcopy(mask)
-    if random.random() > 0.67:
-        new_image = np.zeros_like(mask, dtype=np.float32)
-        num = np.random.randint(1, 11)
-        one_indices = np.where(mask >= 1)
-        maskHoles = np.ascontiguousarray(maskHoles)
-        for i in range(num):
-            radius = np.random.randint(1, 128)
-            chose_center = np.random.randint(len(one_indices[0]))
-            center = one_indices[0][chose_center], one_indices[1][chose_center]
+    new_image = np.zeros_like(mask, dtype=np.float32)
+    num = np.random.randint(1, 11)
+    one_indices = np.where(mask >= 1)
+    maskHoles = np.ascontiguousarray(maskHoles)
+    for i in range(num):
+        radius = np.random.randint(1, 128)
+        chose_center = np.random.randint(len(one_indices[0]))
+        center = one_indices[0][chose_center], one_indices[1][chose_center]
 
-            _new_image = np.ascontiguousarray(np.zeros_like(mask, dtype=np.float32))
-            cv2.circle(_new_image, (center[1], center[0]), radius, -0.5, -1)
-            cv2.circle(maskHoles, (center[1], center[0]), radius, 0, -1)
+        _new_image = np.ascontiguousarray(np.zeros_like(mask, dtype=np.float32))
+        cv2.circle(_new_image, (center[1], center[0]), radius, -0.5, -1)
+        cv2.circle(maskHoles, (center[1], center[0]), radius, 0, -1)
 
-            _new_image = gaussian_filter(_new_image, sigma=radius*random.random())
-            new_image += _new_image
+        _new_image = gaussian_filter(_new_image, sigma=radius*random.random())
+        new_image += _new_image
         
         new_image += 1
         img = img * new_image[:, :, None]
-        # plt.subplot(121)
-        # plt.imshow(img.astype(np.uint8))
-        # plt.subplot(122)
-        # plt.imshow(mask)
-        # plt.show()
-        # raise ValueError
     
     return img.astype(np.uint8), mask, maskHoles
         
-
 
 def savePith(mask_path, pith, image, i, output_path, save_type, augment=True, pithWhole=False):
     crop_size = int(0.1 * image.shape[0]) * 2
@@ -106,7 +76,10 @@ def savePith(mask_path, pith, image, i, output_path, save_type, augment=True, pi
     img_aug = copy.deepcopy(image)
  
     if augment:
-        img_aug, pith_aug = augmentImages(img_aug, pith_aug)
+        if random.random() > 0.5:
+            img_aug, pith_aug = augmentImagesRotate(img_aug, pith_aug)
+        if random.random() > 0.5:
+            img_aug, pith_aug = augmentImagesFlip(img_aug, pith_aug)
         one_indices = np.where(pith_aug == 1)
         center = np.mean(one_indices[0]), np.mean(one_indices[1])
         xStart = int(center[0] - crop_size / 2) + np.random.randint(-int(0.375 * crop_size), int(0.375 * crop_size))
@@ -142,33 +115,23 @@ def savePith(mask_path, pith, image, i, output_path, save_type, augment=True, pi
                             pith_crop.astype(np.uint8))
         
 
-
-def saveTile(mask_path, mask, image, i, output_path, save_type, augment=True, thres=10):
+def saveTile(mask_path, mask, image, i, output_path, save_type, augment=True, whiteHole=True, gauHole=False, thres=10):
     mask_aug = copy.deepcopy(mask)
     img_aug = copy.deepcopy(image)
     if augment:
-        img_aug, mask_aug = augmentImages(img_aug, mask_aug)
-
-    tiles_manager = ImageTiler2D(256, 60, mask_aug.shape)
-    img_tiles = np.array(tiles_manager.image_to_tiles(img_aug, use_normalize=True))
-    mask_tiles = np.array(tiles_manager.image_to_tiles(mask_aug, use_normalize=False))
-    
-    for j in range(0, len(img_tiles)):
-        mask_tile = mask_tiles[j]
-        if np.max(mask_tile) >= thres and np.sum(mask_tile) >= 10:
-            img_tile = img_tiles[j]
-
-            tifffile.imwrite(os.path.join(output_path, save_type, 'x', os.path.basename(mask_path)[:-4] + f'_aug{i}_{j}.tif'),
-                            img_tile)
-            tifffile.imwrite(os.path.join(output_path, save_type, 'y', os.path.basename(mask_path)[:-4] + f'_aug{i}_{j}.tif'),
-                            mask_tile.astype(np.uint8))
-            
-
-def saveTileHoles(mask_path, mask, image, i, output_path, save_type, augment=True, thres=10):
-    mask_aug = copy.deepcopy(mask)
-    img_aug = copy.deepcopy(image)
-    if augment:
-        img_aug, mask_aug, maskHoles = augmentImagesHoles(img_aug, mask_aug)
+        if random.random() > 0.5:
+            img_aug, mask_aug = augmentImagesRotate(img_aug, mask_aug)
+        if random.random() > 0.5:
+            img_aug, mask_aug = augmentImagesFlip(img_aug, mask_aug)
+        if whiteHole and random.random() > 0.5:
+            img_aug, mask_aug, maskHolesWhite = augmentImagesHolesWhite(img_aug, mask_aug)
+        else:
+            maskHolesWhite = copy.deepcopy(mask_aug)
+        if gauHole and random.random() > 0.5:
+            img_aug, mask_aug, maskHolesGaussian = augmentImagesHolesGaussian(img_aug, mask_aug)
+        else:
+            maskHolesGaussian = copy.deepcopy(mask_aug)
+        maskHoles = maskHolesWhite * maskHolesGaussian
     else:
         maskHoles = copy.deepcopy(mask_aug)
 
@@ -187,32 +150,6 @@ def saveTileHoles(mask_path, mask, image, i, output_path, save_type, augment=Tru
                             img_tile)
             tifffile.imwrite(os.path.join(output_path, save_type, 'y', os.path.basename(mask_path)[:-4] + f'_aug{i}_{j}.tif'),
                             mask_tile.astype(np.uint8))
-            
-
-def saveTileHolesGaussian(mask_path, mask, image, i, output_path, save_type, augment=True, thres=10):
-    mask_aug = copy.deepcopy(mask)
-    img_aug = copy.deepcopy(image)
-    if augment:
-        img_aug, mask_aug, maskHoles = augmentImagesHolesGaussian(img_aug, mask_aug)
-    else:
-        maskHoles = copy.deepcopy(mask_aug)
-
-    tiles_manager = ImageTiler2D(256, 60, mask_aug.shape)
-    img_tiles = np.array(tiles_manager.image_to_tiles(img_aug, use_normalize=True))
-    mask_tiles = np.array(tiles_manager.image_to_tiles(mask_aug, use_normalize=False))
-    maskHole_tiles = np.array(tiles_manager.image_to_tiles(maskHoles, use_normalize=False))
-    
-    for j in range(0, len(img_tiles)):
-        maskHole_tile = maskHole_tiles[j]
-        if np.max(maskHole_tile) >= thres and np.sum(maskHole_tile) >= 10:
-            img_tile = img_tiles[j]
-            mask_tile = mask_tiles[j]
-
-            tifffile.imwrite(os.path.join(output_path, save_type, 'x', os.path.basename(mask_path)[:-4] + f'_aug{i}_{j}.tif'),
-                            img_tile)
-            tifffile.imwrite(os.path.join(output_path, save_type, 'y', os.path.basename(mask_path)[:-4] + f'_aug{i}_{j}.tif'),
-                            mask_tile.astype(np.uint8))
-
 
 
 def createFolder(path):
@@ -222,7 +159,6 @@ def createFolder(path):
     os.makedirs(os.path.join(path, 'val/y'), exist_ok=True)
     os.makedirs(os.path.join(path, 'test/x'), exist_ok=True)
     os.makedirs(os.path.join(path, 'test/y'), exist_ok=True)
-
 
 
 def splitRingsAndPith(mask, iterations=10, distance=True, skeleton=False):
