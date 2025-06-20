@@ -20,7 +20,8 @@ if __name__ == '__main__':
     seed = 42
     pithWhole = False
     whiteHoles = True
-    gaussianHoles = True
+    gaussianHoles = False
+    changeColor = False
     dilate = 10
     distance = True
     skeleton = False
@@ -71,7 +72,7 @@ if __name__ == '__main__':
             if pith_path is not None:
                 savePith(mask_path, pith, image, 0, pith_path, save_type, False, pithWhole)
             if tile_path is not None:
-                saveTile(mask_path, other_rings_dis, image, 0, tile_path, save_type, False, whiteHoles, gaussianHoles, thres)
+                saveTile(mask_path, other_rings_dis, image, 0, tile_path, save_type, False, whiteHoles, gaussianHoles, changeColor, thres)
         else:
             if pith_path is not None:
                 data = []
@@ -84,7 +85,7 @@ if __name__ == '__main__':
             if tile_path is not None:
                 data = []
                 for i in range(0, num):
-                    data.append((mask_path, other_rings_dis, image, i, tile_path, save_type, True, whiteHoles, gaussianHoles, thres))
+                    data.append((mask_path, other_rings_dis, image, i, tile_path, save_type, True, whiteHoles, gaussianHoles, changeColor, thres))
 
                 with Pool(int(multiprocessing.cpu_count() * 0.5)) as pool:
                     pool.starmap(saveTile, data)

@@ -37,15 +37,15 @@ class CircleHeuristicFunction(Heuristic):
 
         h0 = np.sqrt(np.sum((current_point - goal_point) ** 2))
 
-        # currentRadius = (h0 / (self.radius[0] + self.radius[1])) * (self.radius[0] - self.radius[1]) + self.radius[1]
+        currentRadius = (h0 / (self.radius[0] + self.radius[1])) * (self.radius[0] - self.radius[1]) + self.radius[1]
 
-        # h1 = np.abs(currentRadius - np.sqrt(np.sum((self.center - current_point) ** 2)))
-        # h2 = np.abs(np.sum((current_point - goal_point) * (current_point - self.startPoint)))
+        h1 = np.abs(currentRadius - np.sqrt(np.sum((self.center - current_point) ** 2)))
+        h2 = np.abs(np.sum((current_point - goal_point) * (current_point - self.startPoint)))
 
-        # if h1 > 0.2 * currentRadius and self.image[current_point[0], current_point[1]] < 1:
-        #     cost = h0 + h2
-        # else:
-        cost = h0
+        if h1 > 0.2 * currentRadius and self.image[current_point[0], current_point[1]] < 1:
+            cost = h0 + h2
+        else:
+            cost = h0
 
         return cost
     

@@ -115,7 +115,7 @@ def savePith(mask_path, pith, image, i, output_path, save_type, augment=True, pi
                             pith_crop.astype(np.uint8))
         
 
-def saveTile(mask_path, mask, image, i, output_path, save_type, augment=True, whiteHole=True, gauHole=False, thres=10):
+def saveTile(mask_path, mask, image, i, output_path, save_type, augment=True, whiteHole=True, gauHole=False, changeColor=False, thres=10):
     mask_aug = copy.deepcopy(mask)
     img_aug = copy.deepcopy(image)
     if augment:
@@ -132,6 +132,10 @@ def saveTile(mask_path, mask, image, i, output_path, save_type, augment=True, wh
         else:
             maskHolesGaussian = copy.deepcopy(mask_aug)
         maskHoles = maskHolesWhite * maskHolesGaussian
+        if changeColor and random.random() > 0.5:
+            channelOrder = np.arange(0, 3)
+            np.random.shuffle(channelOrder)
+            img_aug = img_aug[:, :, channelOrder]
     else:
         maskHoles = copy.deepcopy(mask_aug)
 
