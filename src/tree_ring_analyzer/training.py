@@ -20,18 +20,18 @@ if __name__ == '__main__':
    input_size = (256, 256, 1)
 
    unet_model = Unet(input_size=input_size,
-                     filter_num=[16, 24, 40, 80, 960],
+                     filter_num=[32, 64, 128, 256, 512],
                      n_labels=1,
                      output_activation='linear',
                   #  output_activation='sigmoid',
-                     attention=True,
+                     attention=False,
                      ).model
 
    train = Training(train_input_path, 
                   train_mask_path,
                   val_input_path,
                   val_mask_path,
-                  name='bigDisRingAugGrayWH16',
+                  name='bigDisRingAugGrayNormalWH32',
                   loss='mse',
                   # loss=bce_dice_loss(bce_coef=0.5),
                   numEpochs=30,

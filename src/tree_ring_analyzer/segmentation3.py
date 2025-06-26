@@ -10,15 +10,16 @@ from scipy.optimize import linear_sum_assignment
 from skimage.filters import threshold_otsu
 from tree_ring_analyzer.tiles.tiler import ImageTiler2D
 import matplotlib.pyplot as plt
-from scipy.ndimage import binary_erosion
+from scipy.ndimage import binary_erosion, binary_dilation
 from skimage.morphology import skeletonize
 from skimage.metrics import adapted_rand_error, hausdorff_distance
 from sklearn.metrics import recall_score, precision_score, f1_score, accuracy_score
+from polylabel import polylabel
 
 
 
 class CircleHeuristicFunction(Heuristic):
-    def __init__(self, image, center, startPoint, radius):
+    def __init__(self, image, center, startPoint, radius, lossType='H02'):
         self.radius = radius
         self.image = image
 
@@ -27,7 +28,9 @@ class CircleHeuristicFunction(Heuristic):
         self.width = image.shape[1]
         self.maxValue = np.max(image)
         self.startPoint = startPoint
-        
+        self.currentRadius = self.radius[0]
+        self.previousPoint = self.startPoint
+        self.lossType = lossType
 
     def estimate_cost_to_goal(self, current_point, goal_point):
         if current_point is None or goal_point is None:
@@ -37,15 +40,32 @@ class CircleHeuristicFunction(Heuristic):
 
         h0 = np.sqrt(np.sum((current_point - goal_point) ** 2))
 
-        currentRadius = (h0 / (self.radius[0] + self.radius[1])) * (self.radius[0] - self.radius[1]) + self.radius[1]
-
-        h1 = np.abs(currentRadius - np.sqrt(np.sum((self.center - current_point) ** 2)))
-        h2 = np.abs(np.sum((current_point - goal_point) * (current_point - self.startPoint)))
-
-        if h1 > 0.2 * currentRadius and self.image[current_point[0], current_point[1]] < 1:
-            cost = h0 + h2
-        else:
+        if self.lossType == 'H0':
             cost = h0
+        else:
+            h1 = np.abs(self.currentRadius - np.sqrt(np.sum((self.center - current_point) ** 2)))
+            h2 = np.abs(np.sum((current_point - goal_point) * (current_point - self.startPoint)))
+            
+            # vec_pcen = self.previousPoint - self.center
+            # vec_pcur = self.previousPoint - current_point
+            # if np.all(vec_pcur == 0):
+            #     angle = 90
+            # else:
+            #     angle = np.arccos(np.sum(vec_pcen * vec_pcur)/(np.sqrt(np.sum(vec_pcen ** 2)) * np.sqrt(np.sum(vec_pcur ** 2))))
+            #     angle = np.degrees(angle)
+
+            if (h1 > 0.2 * self.currentRadius and self.image[current_point[0], current_point[1]] < 1):
+                # or (angle < 30 or angle > 150):
+                if self.lossType == 'H01':
+                    cost = h0 + (h1 ** 2)
+                elif self.lossType == 'H02':
+                    cost = h0 + h2
+                else:
+                    raise ValueError
+            else:
+                cost = h0
+                self.currentRadius = np.sqrt(np.sum((self.center - current_point) ** 2))
+                self.previousPoint = current_point
 
         return cost
     
@@ -54,14 +74,17 @@ class CircleHeuristicFunction(Heuristic):
 class TreeRingSegmentation:
     
 
-    def __init__(self, resize=10, pithWhole=False):
+    def __init__(self, resize=10, pithWhole=False, rotate=True, lossType='H02'):
         self.patchSize = 256
         self.overlap = self.patchSize - 196
         self.batchSize = 8
-        self.thickness = 1
+        self.thickness = 3
         self.iterations = 10
         self.resize = resize
         self.pithWhole = pithWhole
+        self.rotate = rotate
+        self.angle = 0
+        self.lossType = lossType
 
         self.predictionRing = None
         self.pith = None
@@ -104,9 +127,16 @@ class TreeRingSegmentation:
 
         ## Prediction
         prediction_crop_pith = modelPith.predict(crop_img, batch_size=1, verbose=0)
-        prediction_crop_pith[prediction_crop_pith >= 0.5] = 1
-        prediction_crop_pith[prediction_crop_pith < 0.5] = 0
+        ret = threshold_otsu(prediction_crop_pith)
+        prediction_crop_pith[prediction_crop_pith > ret] = 1
+        prediction_crop_pith[prediction_crop_pith <= ret] = 0
         prediction_crop_pith = cv2.resize(prediction_crop_pith[0, :, :, 0], (cropSize, cropSize))
+
+        # plt.subplot(121)
+        # plt.imshow(crop_img[0, :, :, 0])
+        # plt.subplot(122)
+        # plt.imshow(prediction_crop_pith)
+        # plt.show()
 
         thres = 0.01 * cropSize
         one_indices = np.where(prediction_crop_pith == 1)
@@ -164,8 +194,9 @@ class TreeRingSegmentation:
             elif len(resizedImage.shape) == 3:
                 resizedImage = resizedImage[None, :, :, :]
             prediction_pith = modelPith.predict(resizedImage, batch_size=1, verbose=0)
-            prediction_pith[prediction_pith >= 0.5] = 1
-            prediction_pith[prediction_pith < 0.5] = 0
+            ret = threshold_otsu(prediction_pith)
+            prediction_pith[prediction_pith > ret] = 1
+            prediction_pith[prediction_pith <= ret] = 0
             self.pith = cv2.resize(prediction_pith[0], (image.shape[1], image.shape[0]))
 
         else:
@@ -189,9 +220,12 @@ class TreeRingSegmentation:
             
             pithContour = self.smooth(contours[chosen_contour], 1)
             self.pithContour = pithContour
-            self.center = int(np.mean(pithContour[:, :, 1]) / self.resize), int(np.mean(pithContour[:, :, 0]) / self.resize)
+            # self.center = int(np.mean(pithContour[:, :, 1]) / self.resize), int(np.mean(pithContour[:, :, 0]) / self.resize)
+            polygon = [[point[0].tolist() for point in pithContour]]
+            self.center = polylabel(polygon)  # Returns (x, y)
+            self.center = int(self.center[1] / self.resize), int(self.center[0] / self.resize)
+
         
-    
     def createMask(self, image):
         if image.shape[-1] == 3:
             image = (0.299 * image[:, :, 0] + 0.587 * image[:, :, 1] + 0.114 * image[:, :, 2])[:, :, None]
@@ -211,6 +245,30 @@ class TreeRingSegmentation:
         self.outerMask = binary_erosion(mask, iterations=self.iterations * 2)
 
     
+    def getPeaks(self, prediction_ring, dark_point, height, width):
+        light_part = np.mean(prediction_ring[dark_point - int(0.05 * height):dark_point + int(0.05 * height), :], axis=0)
+        if np.max(light_part) == 0:
+            self.center = int(self.shape[0] / 2 / self.resize), int(self.shape[1] / 2 / self.resize)
+            dark_point = self.center[0]
+            light_part = np.mean(prediction_ring[dark_point - int(0.05 * height):dark_point + int(0.05 * height), :], axis=0)
+
+        ret = threshold_otsu(light_part)
+
+        peaks1, _ = find_peaks(light_part[:self.center[1]], height=ret, distance=0.025 * width)
+        if len(peaks1) < 1:
+            peaks1, _ = find_peaks(light_part[:self.center[1]], height=threshold_otsu(light_part[:self.center[1]]), 
+                                   distance=0.025 * width)
+        
+        peaks2, _ = find_peaks(light_part[self.center[1]:], height=ret, distance=0.025 * width)
+        peaks2 = peaks2 + self.center[1]
+        if len(peaks2) < 1:
+            peaks2, _ = find_peaks(light_part[self.center[1]:], height=threshold_otsu(light_part[self.center[1]:]), 
+                                   distance=0.025 * width)
+            peaks2 = peaks2 + self.center[1]
+        
+        return peaks1, peaks2, light_part
+
+
     def findEndPoints(self):
         ## Postprocess prediction ring
         prediction_ring = cv2.resize(self.predictionRing, (int(self.shape[1] / self.resize), int(self.shape[0] / self.resize))) * self.outerMask
@@ -223,27 +281,29 @@ class TreeRingSegmentation:
         dark_point = self.center[0]
 
         ## Find start and goal points
-        light_part = np.mean(prediction_ring[dark_point - int(0.05 * height):dark_point + int(0.05 * height), :], axis=0)
-        if np.max(light_part) == 0:
-            self.center = int(self.shape[0] / 2 / self.resize), int(self.shape[1] / 2 / self.resize)
-            dark_point = self.center[0]
-            light_part = np.mean(prediction_ring[dark_point - int(0.05 * height):dark_point + int(0.05 * height), :], axis=0)
-
-        ret = threshold_otsu(light_part)
-
-        peaks1, _ = find_peaks(light_part[:self.center[1]], height=ret, distance=0.025 * width)
-        if len(peaks1) <= 1:
-            peaks1, _ = find_peaks(light_part[:self.center[1]], height=threshold_otsu(light_part[:self.center[1]]), 
-                                   distance=0.025 * width)
         length1 = self.center[1] - np.sum(1 - self.outerMask[dark_point, :self.center[1]])
-
-        peaks2, _ = find_peaks(light_part[self.center[1]:], height=ret, distance=0.025 * width)
-        peaks2 = peaks2 + self.center[1]
-        if len(peaks2) <= 1:
-            peaks2, _ = find_peaks(light_part[self.center[1]:], height=threshold_otsu(light_part[self.center[1]:]), 
-                                   distance=0.025 * width)
-            peaks2 = peaks2 + self.center[1]
         length2 = width - self.center[1] - np.sum(1 - self.outerMask[dark_point, self.center[1]:])
+
+        num = 0
+        angle = 0
+        _prediction_ring = copy.deepcopy(prediction_ring)
+        _outerMask = self.outerMask.astype(np.uint8)
+        rotation_matrix = cv2.getRotationMatrix2D((self.center[1], self.center[0]), 45, scale=1)
+        for i in range(0, 1 if not self.rotate else 4):
+            _peaks1, _peaks2, _light_part = self.getPeaks(_prediction_ring, dark_point, height, width)
+            if len(_peaks1) + len(_peaks2) - num >= 2:
+                num = len(_peaks1) + len(_peaks2)
+                peaks1 = copy.deepcopy(_peaks1)
+                peaks2 = copy.deepcopy(_peaks2)
+                length1 = self.center[1] - np.sum(1 - _outerMask[dark_point, :self.center[1]])
+                length2 = width - self.center[1] - np.sum(1 - _outerMask[dark_point, self.center[1]:])
+                self.angle = angle
+                prediction_ring = copy.deepcopy(_prediction_ring)
+                light_part = copy.deepcopy(_light_part)
+
+            angle += 45
+            _prediction_ring = cv2.warpAffine(_prediction_ring, rotation_matrix, (width, height))
+            _outerMask = cv2.warpAffine(_outerMask, rotation_matrix, (width, height))
 
         if len(peaks1) < len(peaks2):
             a = copy.deepcopy(peaks1)
@@ -265,7 +325,6 @@ class TreeRingSegmentation:
         # raise ValueError
 
         ## Catch up the pairs of start points and goal points
-        data = []
         remains = list(np.arange(0, len(peaks1)))
 
         minLength = min(length1, length2)
@@ -281,21 +340,54 @@ class TreeRingSegmentation:
         image_lower = image_lower * prediction_ring
 
         row_ind, col_ind = linear_sum_assignment(diff_pp)
+        sort_ind = np.argsort(light_part[np.array(peaks1)[row_ind]] + light_part[np.array(peaks2)[col_ind]])[::-1]
+        row_ind = row_ind[sort_ind]
+        col_ind = col_ind[sort_ind]
+
+        results = []
         for k in range(len(row_ind)):
             j = row_ind[k]
             i = col_ind[k]
-            data.append((image_upper, peaks1[j], peaks2[i], dark_point - 1, np.array(self.center), self.resize))
-            data.append((image_lower, peaks1[j], peaks2[i], dark_point, np.array(self.center), self.resize))
+            data = []
+            # plt.imshow(image_lower + image_upper)
+            # plt.show()
+            if light_part[peaks1[j]] >= light_part[peaks2[i]]:
+                data.append((image_upper, peaks1[j], peaks2[i], dark_point - 1, np.array(self.center), self.resize, self.lossType))
+                data.append((image_lower, peaks1[j], peaks2[i], dark_point, np.array(self.center), self.resize, self.lossType))
+            else:
+                data.append((image_upper, peaks2[i], peaks1[j], dark_point - 1, np.array(self.center), self.resize, self.lossType))
+                data.append((image_lower, peaks2[i], peaks1[j], dark_point, np.array(self.center), self.resize, self.lossType))
             remains.remove(j)
+
+            with Pool(2) as pool:
+                    result = pool.starmap(self.traceHalfRing, data)
+
+            results += result
+            
+            mask = self.createRingMask(result)
+
+            image_upper *= mask
+            image_lower *= mask
 
         for j in remains:
             oppositePoint = 2 * self.center[1] - peaks1[j]
             if 0.05 * width <= oppositePoint < 0.95 * width:
                 newPoint = np.argmax(light_part[oppositePoint - int(0.025 * width):oppositePoint + int(0.025 * width)]) + oppositePoint - int(0.025 * width)
-                data.append((image_upper, peaks1[j], newPoint, dark_point - 1, np.array(self.center), self.resize))
-                data.append((image_lower, peaks1[j], newPoint, dark_point, np.array(self.center), self.resize))
-        
-        return data
+                data = []
+                data.append((image_upper, peaks1[j], newPoint, dark_point - 1, np.array(self.center), self.resize, self.lossType))
+                data.append((image_lower, peaks1[j], newPoint, dark_point, np.array(self.center), self.resize, self.lossType))
+
+                with Pool(2) as pool:
+                    result = pool.starmap(self.traceHalfRing, data)
+
+                results += result
+                
+                mask = self.createRingMask(result)
+
+                image_upper *= mask
+                image_lower *= mask
+   
+        return results
     
 
     @classmethod
@@ -305,13 +397,14 @@ class TreeRingSegmentation:
 
 
     @staticmethod
-    def traceHalfRing(image, peak1, peak2, light_point, center, resize):
+    def traceHalfRing(image, peak1, peak2, light_point, center, resize, lossType='H02'):
         start_point = np.array([light_point, peak1])
         goal_point = np.array([light_point, peak2])
         radius = (np.abs(start_point[1] - center[1]), np.abs(goal_point[1] - center[1]))
+
         search_algorithm = AStarSearch(image, start_point=start_point, goal_point=goal_point)
         search_algorithm.heuristic_function = CircleHeuristicFunction(image=image, center=center, startPoint=start_point, 
-                                                                      radius=radius)
+                                                                      radius=radius, lossType=lossType)
 
         brightest_path = search_algorithm.search()
 
@@ -322,6 +415,19 @@ class TreeRingSegmentation:
         cor = TreeRingSegmentation.smooth(cor, resize)
 
         return cor
+    
+
+    def rotateContour(self, contours):
+        rotation_matrix = cv2.getRotationMatrix2D((self.center[1] * self.resize, self.center[0] * self.resize), -self.angle, scale=1)
+        rotated_contours = []
+        for contour in contours:
+            rotated_contour = []
+            for point in contour:
+                x, y = point[0]
+                new_point = np.dot(rotation_matrix, [x, y, 1])
+                rotated_contour.append(new_point)
+            rotated_contours.append(np.array(rotated_contour, dtype=np.int32).reshape((-1, 1, 2)))
+        return rotated_contours
 
 
     def createMaskOfRings(self, cor):
@@ -333,6 +439,9 @@ class TreeRingSegmentation:
                                   np.mean(self.predictionRing[cor[i + 1][:, 0, 1], cor[i + 1][:, 0, 0]]) 
                                   for i in range(0, len(cor), 2)])
         results_sorted = np.argsort(meanIntensity)[::-1]
+        ret = threshold_otsu(self.predictionRing[self.predictionRing >= 1])
+        if np.max(meanIntensity) > ret:
+            results_sorted = results_sorted[meanIntensity[results_sorted] > ret]
         
         for i in range(0, len(results_sorted)):
             _image = np.zeros((self.shape[0], self.shape[1]), dtype=np.uint8)
@@ -348,6 +457,14 @@ class TreeRingSegmentation:
         return image_white
     
     
+    def createRingMask(self, contours):
+        contour = np.append(contours[0], contours[1], axis=0)
+        hull = cv2.convexHull(contour)
+
+        mask = np.zeros((self.outerMask.shape[0], self.outerMask.shape[1]), dtype=np.uint8)
+        cv2.drawContours(mask, [(hull / self.resize).astype(np.int32)], 0, 1, int(0.05 * mask.shape[1]))
+        return 1 - mask
+
 
     def segmentImage(self, modelRing, modelPith, image):
         self.predictionRing = self.predictRing(modelRing, image)
@@ -357,10 +474,10 @@ class TreeRingSegmentation:
         self.predictPith(modelPith, image)
         self.postprocessPith()
 
-        data = self.findEndPoints()
+        results = self.findEndPoints()
 
-        with Pool(multiprocessing.cpu_count()) as pool:
-            results = pool.starmap(self.traceHalfRing, data)
+        if self.angle > 0:
+            results = self.rotateContour(results)
 
         self.maskRings = self.createMaskOfRings(results)
     

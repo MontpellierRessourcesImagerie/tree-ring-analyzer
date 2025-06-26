@@ -1,4 +1,4 @@
-from tree_ring_analyzer.segmentation2 import TreeRingSegmentation, Evaluation
+from tree_ring_analyzer.segmentation3 import TreeRingSegmentation, Evaluation
 import tifffile
 import tensorflow as tf
 import matplotlib.pyplot as plt
@@ -14,7 +14,7 @@ import csv
 if __name__ == '__main__':
     input_folder = '/home/khietdang/Documents/khiet/treeRing/Luidmila/input'
     mask_folder = '/home/khietdang/Documents/khiet/treeRing/masks'
-    output_folder = '/home/khietdang/Documents/khiet/treeRing/Luidmila/output_H0R'
+    output_folder = '/home/khietdang/Documents/khiet/treeRing/Luidmila/output_H01I'
     checkpoint_ring_path = '/home/khietdang/Documents/khiet/tree-ring-analyzer/models/bigDisRingAugGrayWH16.keras'
     checkpoint_pith_path = '/home/khietdang/Documents/khiet/tree-ring-analyzer/models/pithGrayNormal16.keras'
     csv_file = '/home/khietdang/Documents/khiet/treeRing/doc/result_our.csv'
@@ -22,9 +22,9 @@ if __name__ == '__main__':
     rotate = True
     lossType = 'H0' # H0, H01, H02
 
-    # with open(csv_file, 'w') as file:
-    #     writer = csv.writer(file)
-    #     writer.writerow(['Image', 'Hausdorff Distance', 'mean Average Recall', 'ARAND', 'Recall', 'Precision', 'F1', 'Accuracy'])
+    with open(csv_file, 'w') as file:
+        writer = csv.writer(file)
+        writer.writerow(['Image', 'Hausdorff Distance', 'mean Average Recall', 'ARAND', 'Recall', 'Precision', 'F1', 'Accuracy'])
 
     modelRing = tf.keras.models.load_model(checkpoint_ring_path, compile=False)
 
@@ -35,8 +35,8 @@ if __name__ == '__main__':
     image_list = glob.glob(os.path.join(input_folder, '*.tif')) + glob.glob(os.path.join(input_folder, '*.jpg'))
     # _, image_list = train_test_split(image_list, test_size=0.2, shuffle=True, random_state=42)
     # image_list = sorted(image_list)
-    # image_list = [os.path.join(input_folder, '24(3)_x50_8 µm.tif')]
-
+    # image_list = [os.path.join(input_folder, '19b_x50_8 µm.tif')]
+# 
     hausdorff = []
     mAR = []
     arand = []
@@ -44,7 +44,7 @@ if __name__ == '__main__':
     precision = []
     f1 = []
     acc = []
-    for image_path in image_list[69:]:
+    for image_path in image_list[20:]:
         print(image_path)
         if image_path.endswith('.tif'):
             image = tifffile.imread(image_path)

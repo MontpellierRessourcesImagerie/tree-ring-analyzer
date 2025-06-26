@@ -9,7 +9,7 @@ import numpy as np
 
 
 
-ring_path = '/home/khietdang/Documents/khiet/treeRing/predictions_bigDisRingAugGrayNormalHoles16'
+ring_path = '/home/khietdang/Documents/khiet/treeRing/predictions_bigDisRingAugGrayWH16'
 pith_path = '/home/khietdang/Documents/khiet/treeRing/predictions_pithGrayNormal16'
 output_path = '/home/khietdang/Documents/khiet/treeRing/output_A'
 mask_path = '/home/khietdang/Documents/khiet/treeRing/masks'
