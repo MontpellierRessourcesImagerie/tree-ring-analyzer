@@ -399,6 +399,6 @@ def endpoints(image_path, pith_folder, output_folder):
     cv2.drawContours(image_final, contours, longest_contour, 1, 1)
 
     image_final[image_final == 1] = 255
-    tifffile.imwrite(os.path.join(output_folder, os.path.basename(image_path)), image_final.astype(np.uint8))
+    # tifffile.imwrite(os.path.join(output_folder, os.path.basename(image_path)), image_final.astype(np.uint8))
     
     return image_final

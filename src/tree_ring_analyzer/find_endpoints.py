@@ -9,7 +9,7 @@ import numpy as np
 
 
 
-ring_path = '/home/khietdang/Documents/khiet/treeRing/MO_bigDisRingAugGrayWH16'
+ring_path = '/home/khietdang/Documents/khiet/treeRing/MO_bigDisRingAugGray16'
 pith_path = '/home/khietdang/Documents/khiet/treeRing/predictions_pithGrayNormal16'
 output_path = '/home/khietdang/Documents/khiet/treeRing/output_MOE'
 mask_path = '/home/khietdang/Documents/khiet/treeRing/masks'
@@ -37,7 +37,7 @@ for image_path in image_list:
     mask = tifffile.imread(os.path.join(mask_path, os.path.basename(image_path)))
 
     evaluation = Evaluation(prediction, prediction)
-    tifffile.imwrite(os.path.join(output_path, os.path.basename(image_path)), evaluation.predictedSeg.astype(np.uint8))
+    # tifffile.imwrite(os.path.join(output_path, os.path.basename(image_path)), evaluation.predictedSeg.astype(np.uint8))
 
     evaluation = Evaluation(mask, prediction)
     hausdorff.append(evaluation.evaluateHausdorff())
