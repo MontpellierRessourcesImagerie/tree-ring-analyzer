@@ -28,7 +28,6 @@ class CircleHeuristicFunction(Heuristic):
         self.width = image.shape[1]
         self.maxValue = np.max(image)
         self.startPoint = startPoint
-        self.currentRadius = self.radius[0]
         self.lossType = lossType
 
     def estimate_cost_to_goal(self, current_point, goal_point):
@@ -38,15 +37,15 @@ class CircleHeuristicFunction(Heuristic):
             raise ValueError
 
         h0 = np.sqrt(np.sum((current_point - goal_point) ** 2))
+        currentRadius = (h0 / (self.radius[0] + self.radius[1])) * (self.radius[0] - self.radius[1]) + self.radius[1]
 
         if self.lossType == 'H0':
             cost = h0
         else:
-            h1 = np.abs(self.currentRadius - np.sqrt(np.sum((self.center - current_point) ** 2)))
+            h1 = np.abs(currentRadius - np.sqrt(np.sum((self.center - current_point) ** 2)))
             h2 = np.abs(np.sum((current_point - goal_point) * (current_point - self.startPoint)))
 
-            if (h1 > 0.2 * self.currentRadius and self.image[current_point[0], current_point[1]] < 1):
-                # or (angle < 30 or angle > 150):
+            if (h1 > 0.2 * currentRadius and self.image[current_point[0], current_point[1]] < 1):
                 if self.lossType == 'H01':
                     cost = h0 + (h1 ** 2)
                 elif self.lossType == 'H02':
@@ -55,7 +54,6 @@ class CircleHeuristicFunction(Heuristic):
                     raise ValueError
             else:
                 cost = h0
-                self.currentRadius = np.sqrt(np.sum((self.center - current_point) ** 2))
 
         return cost
     

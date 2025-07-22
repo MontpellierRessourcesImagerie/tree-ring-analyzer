@@ -1,4 +1,4 @@
-from tree_ring_analyzer.dl.train import Training, bce_dice_loss, dice_mse_loss, dice_loss
+from tree_ring_analyzer.dl.train import Training, bce_dice_loss, dice_mse_loss, dice_loss, tcloss
 from tree_ring_analyzer.dl.model import Unet
 import random
 import numpy as np
@@ -12,10 +12,10 @@ tf.random.set_seed(SEED)
 
 
 if __name__ == '__main__':
-   train_input_path = "/home/khietdang/Documents/khiet/INBD/dataset/DO/tile_big_dis_otherrings/train/x"
-   train_mask_path = "/home/khietdang/Documents/khiet/INBD/dataset/DO/tile_big_dis_otherrings/train/y"
-   val_input_path = "/home/khietdang/Documents/khiet/INBD/dataset/DO/tile_big_dis_otherrings/val/x"
-   val_mask_path = "/home/khietdang/Documents/khiet/INBD/dataset/DO/tile_big_dis_otherrings/val/y"
+   train_input_path = "/home/khietdang/Documents/khiet/treeRing/tile_big_dis_otherrings/train/x"
+   train_mask_path = "/home/khietdang/Documents/khiet/treeRing/tile_big_dis_otherrings/train/y"
+   val_input_path = "/home/khietdang/Documents/khiet/treeRing/tile_big_dis_otherrings/val/x"
+   val_mask_path = "/home/khietdang/Documents/khiet/treeRing/tile_big_dis_otherrings/val/y"
 
    input_size = (256, 256, 1)
 
@@ -31,9 +31,10 @@ if __name__ == '__main__':
                   train_mask_path,
                   val_input_path,
                   val_mask_path,
-                  name='ringWHDO',
-                  loss='mse',
+                  name='bigDisRingAugGrayWH16TCL',
+                  # loss='mse',
                   # loss=bce_dice_loss(bce_coef=0.5),
+                  loss = tcloss,
                   numEpochs=30,
                   channel = input_size[-1]
                   )

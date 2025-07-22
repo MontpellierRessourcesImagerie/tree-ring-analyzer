@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 from scipy.interpolate import griddata
-from scipy.ndimage import binary_dilation
+from scipy.ndimage import binary_dilation, median_filter
 from skimage.draw import circle_perimeter
 from scipy.optimize import linear_sum_assignment
 from skimage.segmentation import active_contour
@@ -16,9 +16,11 @@ import tifffile
 
 
 
-def activeContour(image_path, pith_path, output_path):
+def activeContour(image_path, pith_path, output_path, thickness):
     image = tifffile.imread(image_path)
     image = (image - np.min(image)) * 255 / (np.max(image) - np.min(image))
+    fsize = int((image.shape[0] + image.shape[1]) * 0.001) * 2 + 1
+    image = median_filter(image, size=fsize)
 
     shapeOriginal = image.shape
     image = cv2.resize(image, (int(image.shape[1] / 5), int(image.shape[0] / 5)))
@@ -31,7 +33,8 @@ def activeContour(image_path, pith_path, output_path):
     image = (image * (1 - pith_clear)).astype(np.uint8)
 
     one_indice = np.where(pith_whole == 1)
-    center = np.mean(one_indice[0]), np.mean(one_indice[1])
+    center_pith = np.mean(one_indice[0]), np.mean(one_indice[1])
+    center = int(image.shape[0] / 2), int(image.shape[1] / 2)
     contours, _ = cv2.findContours(pith_whole.astype(np.uint8), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
     longest_contour = np.argmax(np.array([len(contour) for contour in contours]))
     pithContour = contours[longest_contour]
@@ -40,11 +43,11 @@ def activeContour(image_path, pith_path, output_path):
     rings = []
     radius = int(0.95 * min(center[0], image.shape[0] - center[0], center[1], image.shape[1] - center[1]))
     i = 1
-    
+    plt.imshow(image)
     while True:
         s = np.linspace(0, 2 * np.pi, int(np.pi * radius * 2))
-        r = center[1] + radius * np.sin(s)
-        c = center[0] + radius * np.cos(s)
+        r = center[0] + radius * np.sin(s)
+        c = center[1] + radius * np.cos(s)
         init = np.array([r, c]).T
         snake = active_contour(
             image,
@@ -56,18 +59,21 @@ def activeContour(image_path, pith_path, output_path):
             boundary_condition='periodic'
         )
 
-
+        center = int(np.mean(snake[:, 0])), int(np.mean(snake[:, 1]))
         radius = np.min(np.sqrt((center[0] - snake[:, 0]) ** 2 + (center[1] - snake[:, 1]) ** 2))
-        polygon_value = cv2.pointPolygonTest(snake[:, None, ::-1].astype(np.int32), (center[1], center[0]), True)
+        polygon_value = cv2.pointPolygonTest(snake[:, None, ::-1].astype(np.int32), (center_pith[1], center_pith[0]), True)
         if radius > rad_min and polygon_value > 0:
             rings.append((snake[:, ::-1] * 5).astype(np.int32))
             radius = radius - int(0.025 * image.shape[0])
+            plt.plot(init[:, 1], init[:, 0], 'r--')
+            plt.plot(snake[:, 1], snake[:, 0], 'b')
         
         if radius <= rad_min or i >= 5 or polygon_value < 0:
             break
 
         i += 1
-
+    plt.show()
+    raise ValueError
     image_final = np.zeros((shapeOriginal[0], shapeOriginal[1]))
 
     pith[pith >= 0.5] = 1
@@ -75,10 +81,9 @@ def activeContour(image_path, pith_path, output_path):
     contours, _ = cv2.findContours(pith.astype(np.uint8), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
     longest_contour = np.argmax(np.array([len(contour) for contour in contours]))
     rings.append(contours[longest_contour][:, 0, :])
-    cv2.drawContours(image_final, contours, longest_contour, 1, 1)
 
     for ring in rings:
-        cv2.drawContours(image_final, [ring[:, None, :]], 0, 1, 1)
+        cv2.drawContours(image_final, [ring[:, None, :]], 0, 1, thickness=thickness)
 
     image_final[image_final == 1] = 255
     tifffile.imwrite(os.path.join(output_path, os.path.basename(image_path)), image_final.astype(np.uint8))
@@ -317,7 +322,7 @@ def plot_curve(point1, point2, center, num=100000, thresh=100):
 
 
 
-def endpoints(image_path, pith_folder, output_folder):
+def endpoints(image_path, pith_folder, output_folder, thickness=1):
     image = tifffile.imread(image_path)
 
     image[image == 255] = 1
@@ -392,13 +397,13 @@ def endpoints(image_path, pith_folder, output_folder):
         if cv2.pointPolygonTest(contours[0], [center[1], center[0]], True) > 0:
             cv2.drawContours(image2, contours, 0, 1, cv2.FILLED)
             contours, _ = cv2.findContours(image2, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-            cv2.drawContours(image_final, contours, 0, 1, 1)
+            cv2.drawContours(image_final, contours, 0, 1, thickness=thickness)
 
     contours, _ = cv2.findContours(pith_whole.astype(np.uint8), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
     longest_contour = np.argmax(np.array([len(contour) for contour in contours]))
-    cv2.drawContours(image_final, contours, longest_contour, 1, 1)
+    cv2.drawContours(image_final, contours, longest_contour, 1, thickness=thickness)
 
     image_final[image_final == 1] = 255
-    # tifffile.imwrite(os.path.join(output_folder, os.path.basename(image_path)), image_final.astype(np.uint8))
+    tifffile.imwrite(os.path.join(output_folder, os.path.basename(image_path)), image_final.astype(np.uint8))
     
     return image_final
