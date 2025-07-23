@@ -86,7 +86,15 @@ def tcloss(y_true, y_pred):
     # Average over batch
     hd_mean = tf.reduce_mean(hd_clean)
 
-    return mse_mean + hd_mean * 0.01
+    return mse_mean + hd_mean * 0.001
+
+
+@tf.keras.utils.register_keras_serializable()
+def rdloss(y_true, y_pred):
+    y_pred = tf.math.sigmoid(y_pred)
+    y_true = y_true / tf.math.reduce_max(y_true)
+    return - 0.5 * (2 * tf.math.reduce_sum(y_pred *  y_true)) / (tf.math.reduce_sum(y_pred ** 2) + tf.math.reduce_sum(y_true ** 2))
+    
 
 
 class Training:
@@ -134,7 +142,6 @@ class Training:
     def _createDataset(self):
         train_input_paths = [os.path.join(self.inputPath, path) for path in os.listdir(self.inputPath) if path.endswith(".tif")]
         train_mask_paths = [os.path.join(self.labelPath, path) for path in os.listdir(self.labelPath) if path.endswith(".tif")]
-
         self.stepsPerEpoch = len(train_input_paths) // self.batchSize
 
         train_path_dataset = tf.data.Dataset.from_tensor_slices((train_input_paths, train_mask_paths))

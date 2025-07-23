@@ -1,4 +1,4 @@
-from tree_ring_analyzer.dl.train import Training, bce_dice_loss, dice_mse_loss, dice_loss, tcloss
+from tree_ring_analyzer.dl.train import Training, bce_dice_loss, dice_mse_loss, dice_loss, tcloss, rdloss
 from tree_ring_analyzer.dl.model import Unet
 import random
 import numpy as np
@@ -16,14 +16,17 @@ if __name__ == '__main__':
    train_mask_path = "/home/khietdang/Documents/khiet/treeRing/tile_big_dis_otherrings/train/y"
    val_input_path = "/home/khietdang/Documents/khiet/treeRing/tile_big_dis_otherrings/val/x"
    val_mask_path = "/home/khietdang/Documents/khiet/treeRing/tile_big_dis_otherrings/val/y"
-
+   filter_num = [16, 24, 40, 80, 960]
+   output_activation = 'linear' # linear, sigmoid
+   loss = rdloss #'mse', bce_dice_loss(bce_coef=0.5)
+   name = 'bigDisRingAugGrayWH16RD'
+   numEpochs = 30 #30, 100
    input_size = (256, 256, 1)
 
    unet_model = Unet(input_size=input_size,
-                     filter_num=[16, 24, 40, 80, 960],
+                     filter_num=filter_num,
                      n_labels=1,
-                     output_activation='linear',
-                  #  output_activation='sigmoid',
+                     output_activation=output_activation,
                      attention=True,
                      ).model
 
@@ -31,10 +34,8 @@ if __name__ == '__main__':
                   train_mask_path,
                   val_input_path,
                   val_mask_path,
-                  name='bigDisRingAugGrayWH16TCL',
-                  # loss='mse',
-                  # loss=bce_dice_loss(bce_coef=0.5),
-                  loss = tcloss,
+                  name=name,
+                  loss = loss,
                   numEpochs=30,
                   channel = input_size[-1]
                   )
