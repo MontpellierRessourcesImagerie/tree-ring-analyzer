@@ -91,9 +91,11 @@ def tcloss(y_true, y_pred):
 
 @tf.keras.utils.register_keras_serializable()
 def rdloss(y_true, y_pred):
-    y_pred = tf.math.sigmoid(y_pred)
+    mse = tf.reduce_mean(tf.math.squared_difference(y_true, y_pred), axis=(1, 2, 3))
+    y_pred = tf.math.sigmoid(y_pred - tf.math.reduce_mean(y_pred))
     y_true = y_true / tf.math.reduce_max(y_true)
-    return - 0.5 * (2 * tf.math.reduce_sum(y_pred *  y_true)) / (tf.math.reduce_sum(y_pred ** 2) + tf.math.reduce_sum(y_true ** 2))
+    rd = - 0.5 * (2 * tf.math.reduce_sum(y_pred *  y_true)) / (tf.math.reduce_sum(y_pred ** 2) + tf.math.reduce_sum(y_true ** 2))
+    return mse + rd
     
 
 

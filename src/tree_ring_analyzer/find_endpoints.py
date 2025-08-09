@@ -22,7 +22,7 @@ csv_file = '/home/khietdang/Documents/khiet/treeRing/doc/result_MOE.csv'
 # image_list = glob.glob(os.path.join(ring_path, '*.tif'))
 # _, image_list = train_test_split(image_list, test_size=0.2, random_state=42, shuffle=True)
 # image_list = sorted(image_list)
-image_list = [os.path.join(ring_path, '12 E 3 t_8µm_x50.tif')]
+image_list = [os.path.join(ring_path, '4 E 4 m_8µm_x50.tif')]
 
 hausdorff = []
 mAR = []

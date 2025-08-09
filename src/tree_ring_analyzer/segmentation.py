@@ -62,7 +62,7 @@ class CircleHeuristicFunction(Heuristic):
 class TreeRingSegmentation:
     
 
-    def __init__(self, resize=10, pithWhole=False, rotate=True, lossType='H02', removeRing=True, thickness=1):
+    def __init__(self, resize=5, pithWhole=False, rotate=True, lossType='H0', removeRing=True, thickness=1):
         self.patchSize = 256
         self.overlap = self.patchSize - 196
         self.batchSize = 8
@@ -84,6 +84,7 @@ class TreeRingSegmentation:
         self.shape = None
         self.shapeOriginal = None
         self.centerOriginal = None
+        self.predictedRings = []
 
 
     def predictRing(self, modelRing, image):
@@ -429,6 +430,7 @@ class TreeRingSegmentation:
         image_white = np.zeros((self.shape[0], self.shape[1]), dtype=np.uint8)
         if self.pithContour is not None:
             cv2.drawContours(image_white, [np.array(self.pithContour)], 0, 1, self.thickness)
+            self.predictedRings.append(np.array(self.pithContour))
 
         meanIntensity = np.array([np.mean(self.predictionRing[cor[i][:, 0, 1], cor[i][:, 0, 0]]) + 
                                   np.mean(self.predictionRing[cor[i + 1][:, 0, 1], cor[i + 1][:, 0, 0]]) 
@@ -446,6 +448,7 @@ class TreeRingSegmentation:
             if np.sum(np.bitwise_and(_image, image_white)) == 0 \
             and cv2.pointPolygonTest(ring, (self.center[1] * self.resize, self.center[0] * self.resize), True) > 0:
                 image_white = np.bitwise_or(image_white, _image)
+                self.predictedRings.append(ring)
 
         image_white[image_white == 1] = 255
 
