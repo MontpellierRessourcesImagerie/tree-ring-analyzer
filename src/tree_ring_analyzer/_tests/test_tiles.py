@@ -1,8 +1,7 @@
 import pytest
 import numpy as np
 import itertools
-from microglia_analyzer.tiles.tiler import ImageTiler2D, normalize
-from microglia_analyzer.tiles.recalibrate import recalibrate_shape, recalibrate_image
+from tree_ring_analyzer.tiles.tiler import ImageTiler2D, normalize
 
 
 """ TESTS:
@@ -197,10 +196,3 @@ def test_blending_coefs_sum(patch_size, overlap, shape, blending, nChannels):
     diff = np.abs(original_image - transformed_image)
     assert np.max(diff) - np.min(diff) < 1e-5
 
-@pytest.mark.parametrize("input_p_size, input_unit, input_shape, expected_shape", _SHAPES_RECALIBRATE)
-def test_recalibrate_shape(input_p_size, input_unit, input_shape, expected_shape):
-    """
-    Tests that shapes are correctly recalibrated to match a pixel size of 0.325 µm.
-    """
-    new_shape = recalibrate_shape(input_shape, input_p_size, input_unit)
-    assert new_shape == expected_shape

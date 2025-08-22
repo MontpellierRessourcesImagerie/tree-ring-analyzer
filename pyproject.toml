@@ -1,6 +1,6 @@
 [project]
 name = "tree-ring-analyzer"
-dynamic = ["version"]
+version = "0.1.3.1"
 description = "A package that allows to segment tree rings."
 readme = "README.md"
 license = {file = "LICENSE"}
@@ -47,7 +47,10 @@ testing = [
     "pint",
     "tifffile",
     "tensorflow==2.17.0",
-    "python-polylabel"
+    "python-polylabel",
+    "codecov"
+    "setuptools",
+    "tox-gh-actions"
 ]
 
 [project.urls]

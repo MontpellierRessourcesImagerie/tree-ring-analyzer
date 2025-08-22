@@ -19,7 +19,7 @@ if __name__ == '__main__':
    filter_num = [16, 24, 40, 80, 960] # [7, 14, 28, 56, 112], [16, 24, 40, 80, 960], [64, 128, 256, 512, 1024]
    output_activation = 'linear' # linear, sigmoid
    attention=True
-   loss = rdloss #'mse', bce_dice_loss(bce_coef=0.5)
+   loss = 'mse' # bce_dice_loss(bce_coef=0.5)
    name = 'bigDisRingAugGrayWH16RD'
    numEpochs = 30 #30, 100
    input_size = (256, 256, 1)

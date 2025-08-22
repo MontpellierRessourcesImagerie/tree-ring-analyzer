@@ -2,7 +2,6 @@ from brightest_path_lib.algorithm import AStarSearch
 from brightest_path_lib.heuristic import Heuristic
 import copy
 import cv2
-import multiprocessing
 from multiprocessing import Pool
 import numpy as np
 from scipy.signal import find_peaks, savgol_filter
@@ -10,7 +9,7 @@ from scipy.optimize import linear_sum_assignment
 from skimage.filters import threshold_otsu
 from tree_ring_analyzer.tiles.tiler import ImageTiler2D
 import matplotlib.pyplot as plt
-from scipy.ndimage import binary_erosion, binary_dilation
+from scipy.ndimage import binary_erosion
 from skimage.morphology import skeletonize
 from skimage.metrics import adapted_rand_error, hausdorff_distance
 from sklearn.metrics import recall_score, precision_score, f1_score, accuracy_score
@@ -130,6 +129,8 @@ class TreeRingSegmentation:
 
         thres = 0.01 * cropSize
         one_indices = np.where(prediction_crop_pith == 1)
+        if not len(one_indices[0]):
+            one_indices = (int(prediction_crop_pith.shape[0] / 2), int(prediction_crop_pith.shape[1] / 2))
 
         c1x = np.sum(prediction_crop_pith[0, :]) >= thres
         c2x = np.sum(prediction_crop_pith[-1, :]) >= thres
@@ -572,8 +573,8 @@ class Evaluation:
         predictedRingSeg[self.prediction == 255] = 1
         predictedRingSeg = predictedRingSeg.flatten()
 
-        recall = recall_score(gtRingSeg, predictedRingSeg)
-        precision = precision_score(gtRingSeg, predictedRingSeg)
-        f1 = f1_score(gtRingSeg, predictedRingSeg)
+        recall = recall_score(gtRingSeg, predictedRingSeg, zero_division=0)
+        precision = precision_score(gtRingSeg, predictedRingSeg, zero_division=0)
+        f1 = f1_score(gtRingSeg, predictedRingSeg, zero_division=0)
         acc = accuracy_score(gtRingSeg, predictedRingSeg)
         return recall, precision, f1, acc
