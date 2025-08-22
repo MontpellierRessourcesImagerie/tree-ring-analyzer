@@ -8,7 +8,7 @@ on:
     branches:
       - main
     paths:
-      - "src/tree_ring_analyzer/_test/**"
+      - "src/tree_ring_analyzer/_tests/**"
   release:
     types: [created]
 
