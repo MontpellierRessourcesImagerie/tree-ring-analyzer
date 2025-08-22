@@ -1,21 +1,38 @@
 # Tree Ring Analyzer
 
-[![codecov](https://codecov.io/gh/MontpellierRessourcesImagerie/tree-ring-analyzer/branch/main/graph/badge.svg)](https://codecov.io/gh/MontpellierRessourcesImagerie/tree-ring-analyzer)
-
+[![License MIT](https://img.shields.io/pypi/l/tree-ring-analyzer.svg?color=green)](https://github.com/MontpellierRessourcesImagerie/tree-ring-analyzer/raw/main/LICENSE)
+[![PyPI](https://img.shields.io/pypi/v/tree-ring-analyzer.svg?color=green)](https://pypi.org/project/tree-ring-analyzer)
+[![Python Version](https://img.shields.io/pypi/pyversions/ntree-ring-analyzer.svg?color=green)](https://python.org)
+[![tests](https://github.com/MontpellierRessourcesImagerie/tree-ring-analyzer/workflows/tests/badge.svg)](https://github.com/MontpellierRessourcesImagerie/tree-ring-analyzer/actions)
 
 Tree Ring Analyzer is an automatic framework that allows the segmentation and detection of tree rings on 2D stained microscopy images.
 
-## Preparations
-### Dataset
-The input image should be stained microscopy cross-sectional tree-ring image with the format of TIF file.
+## How to install/upgrade it?
 
-### Downloading dependencies
-Run the following command to install the necessary libraries
-```
-pip install -e .
-```
+| Action      | Command                                                                                               |
+|-------------|-------------------------------------------------------------------------------------------------------|
+| **Install** | `pip install tree-ring-analyzer`                                                                      |
+| **Upgrade** | `pip install --upgrade tree-ring-analyzer`                                                            |
 
-### Pre-processing
+
+## How to use it?
+- The input image should be stained microscopy cross-sectional tree-ring image with the format of TIF file.
+- The two input models, pith prediction and ring segmentation, could be downloaded in the following link: https://github.com/MontpellierRessourcesImagerie/napari-tree-rings/blob/main/model_urls.json
+- Run `TreeRingSegmentation(resize=5, pithWhole=False, rotate=True, lossType='H0', removeRing=True, thickness=1).segmentImage(modelRing, modelPith, image)`, in which:
+        - resize: Controls how much your image is scaled down before post-processing (default is 5).
+        - pithWhole: True/False. If True, the pith image will not be cropped (default is False).
+        - rotate: True/False. If True, FDRS algorithm will be used (default is True).
+        - lossType: The type of heuristic function, including 'H0', 'H01', and 'H02' (default is 'H0').
+        - removeRing: True/False. If True, IRR algorithm will be used (default is True).
+        - thickness: the thickness of output ring (default is 1).
+        - modelRing: Choose loaded Keras model for segmenting tree ring boundaries.
+        - modelPith: Choose loaded Keras model for segmenting pith.
+        - image: The loaded tree cross-sectional image, should be in the shape of (Y, X, 1).
+        
+- For more details, check the [detailed documentation](https://montpellierressourcesimagerie.github.io/napari-tree-rings).
+
+
+## Pre-processing
 Please run the file `preprocessing.py` to generate pre-processed data before training, in which:
 - input_path: directory of original images
 - mask_path: directory of ground truths
@@ -59,7 +76,7 @@ Please run the file `test_segmentation.py` to test, in which:
 - rotate: True/False. If True, FDRS algorithm will be used (default is True).
 - removeRing: True/False. If True, IRR algorithm will be used (default is True).
 - lossType: the type of heuristic function, including 'H0', 'H01', and 'H02' (default is 'H0').
-- thickness: the thickness of output ring
+- thickness: the thickness of output ring (default is 1).
 
 The outputs will include the predicted rings in output folder and csv file (containing the results of the evaluation metrics, including Hausdorff distance, mAR, ARAND, recall, precision, accuracy).
 
