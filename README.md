@@ -19,15 +19,18 @@ Tree Ring Analyzer is an automatic framework that allows the segmentation and de
 - The input image should be stained microscopy cross-sectional tree-ring image with the format of TIF file.
 - The two input models, pith prediction and ring segmentation, could be downloaded in the following link: https://github.com/MontpellierRessourcesImagerie/napari-tree-rings/blob/main/model_urls.json
 - Run `TreeRingSegmentation(resize=5, pithWhole=False, rotate=True, lossType='H0', removeRing=True, thickness=1).segmentImage(modelRing, modelPith, image)`, in which:
-        - resize: Controls how much your image is scaled down before post-processing (default is 5).
-        - pithWhole: True/False. If True, the pith image will not be cropped (default is False).
-        - rotate: True/False. If True, FDRS algorithm will be used (default is True).
-        - lossType: The type of heuristic function, including 'H0', 'H01', and 'H02' (default is 'H0').
-        - removeRing: True/False. If True, IRR algorithm will be used (default is True).
-        - thickness: the thickness of output ring (default is 1).
-        - modelRing: Choose loaded Keras model for segmenting tree ring boundaries.
-        - modelPith: Choose loaded Keras model for segmenting pith.
-        - image: The loaded tree cross-sectional image, should be in the shape of (Y, X, 1).
+    - resize: Controls how much your image is scaled down before post-processing (default is 5).
+    - pithWhole: True/False. If True, the pith image will not be cropped (default is False).
+    - rotate: True/False. If True, FDRS algorithm will be used (default is True).
+    - lossType: The type of heuristic function, including 'H0', 'H01', and 'H02' (default is 'H0').
+    - removeRing: True/False. If True, IRR algorithm will be used (default is True).
+    - thickness: the thickness of output ring (default is 1).
+    - modelRing: Choose loaded Keras model for segmenting tree ring boundaries.
+    - modelPith: Choose loaded Keras model for segmenting pith.
+    - image: The loaded tree cross-sectional image, should be in the shape of (Y, X, 1).
+- The output will consist of:
+    - predictedRings: list of detected ring boundaries
+    - maskRings: binary prediction of ring boundaries
 
 - For more details, check the [detailed documentation](https://montpellierressourcesimagerie.github.io/napari-tree-rings).
 
