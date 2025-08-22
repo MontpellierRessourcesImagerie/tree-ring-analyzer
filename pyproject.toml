@@ -31,7 +31,9 @@ dependencies = [
     "opencv-python-headless",
     "tifffile",
     "tensorflow==2.17.0",
-    "python-polylabel"
+    "python-polylabel",
+    "brightest_path_lib",
+    "matplotlib"
 ]
 
 # Required for documentation: tabs, sphinx_sphinx, myst_parser, sphinx_rtd_theme
@@ -50,7 +52,9 @@ testing = [
     "python-polylabel",
     "codecov",
     "setuptools",
-    "tox-gh-actions"
+    "tox-gh-actions",
+    "brightest_path_lib",
+    "matplotlib"
 ]
 
 [project.urls]

@@ -3,7 +3,6 @@ from tensorflow.keras import layers
 import tifffile
 import os
 import numpy as np
-import matplotlib.pyplot as plt
 import cv2
 from skimage.color import rgb2gray
 import glob
