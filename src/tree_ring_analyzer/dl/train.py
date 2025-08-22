@@ -4,7 +4,6 @@ import tifffile
 import os
 from tensorflow import keras
 from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping
-from tensorflow_graphics.nn.loss import hausdorff_distance
 import json
 
 
@@ -67,26 +66,6 @@ def dice_mse_loss(mse_coef=0.3):
         mse = keras.losses.MeanSquaredError()(y_true, y_pred)
         return dice + mse * mse_coef
     return dml
-
-
-@tf.keras.utils.register_keras_serializable()
-def tcloss(y_true, y_pred):
-    # Compute per-sample MSE
-    mse_per_sample = tf.reduce_mean(tf.math.squared_difference(y_true, y_pred), axis=(1, 2, 3))  # shape: [batch]
-    mse_mean = tf.reduce_mean(mse_per_sample)
-
-    # Compute per-sample Hausdorff distances
-    hd_raw = hausdorff_distance.evaluate(y_true, y_pred)  # shape: [batch]
-
-    # Replace NaN or Inf with a large constant, e.g., 362.0
-    invalid_mask = tf.math.logical_or(tf.math.is_nan(hd_raw), tf.math.is_inf(hd_raw))
-    large_val = tf.constant(362.0, dtype=hd_raw.dtype)
-    hd_clean = tf.where(invalid_mask, large_val, hd_raw)
-
-    # Average over batch
-    hd_mean = tf.reduce_mean(hd_clean)
-
-    return mse_mean + hd_mean * 0.001
 
 
 @tf.keras.utils.register_keras_serializable()
