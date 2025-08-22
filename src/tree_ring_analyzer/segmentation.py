@@ -121,12 +121,6 @@ class TreeRingSegmentation:
         prediction_crop_pith[prediction_crop_pith <= ret] = 0
         prediction_crop_pith = cv2.resize(prediction_crop_pith[0, :, :, 0], (cropSize, cropSize))
 
-        # plt.subplot(121)
-        # plt.imshow(crop_img[0, :, :, 0])
-        # plt.subplot(122)
-        # plt.imshow(prediction_crop_pith)
-        # plt.show()
-
         thres = 0.01 * cropSize
         one_indices = np.where(prediction_crop_pith == 1)
         if not len(one_indices[0]):
@@ -226,9 +220,17 @@ class TreeRingSegmentation:
         imageBinary = 1 - imageBinary
 
         one_indices = np.where(imageBinary == 1)
-        chose_indices = (0.05 * imageBinary.shape[0] < one_indices[0]) & (one_indices[0] < 0.95 * imageBinary.shape[0]) \
-            & (0.05 * imageBinary.shape[1] < one_indices[1]) & (one_indices[1] < 0.95 * imageBinary.shape[1])
-        indices = np.append(one_indices[1][chose_indices][:, None, None], one_indices[0][chose_indices][:, None, None], axis=-1)
+        if not len(one_indices[0]):
+            radius = 0.9 * min(imageBinary.shape[0], imageBinary.shape[1])
+            s = np.linspace(0, 2 * np.pi, int(np.pi * radius))
+            r = imageBinary.shape[0] / 2 + radius * np.sin(s)
+            c = imageBinary.shape[1] / 2 + radius * np.cos(s)
+            indices = np.array([r, c]).T
+            indices = indices[:, None, :].astype(np.int32)
+        else:
+            chose_indices = (0.05 * imageBinary.shape[0] < one_indices[0]) & (one_indices[0] < 0.95 * imageBinary.shape[0]) \
+                & (0.05 * imageBinary.shape[1] < one_indices[1]) & (one_indices[1] < 0.95 * imageBinary.shape[1])
+            indices = np.append(one_indices[1][chose_indices][:, None, None], one_indices[0][chose_indices][:, None, None], axis=-1)
 
         mask = np.zeros_like(imageBinary)
         cv2.drawContours(mask, [indices], 0, 1, -1)
@@ -302,16 +304,6 @@ class TreeRingSegmentation:
             a = copy.deepcopy(length1)
             length1 = copy.deepcopy(length2)
             length2 = copy.deepcopy(a)
-
-        # plt.figure(figsize=(10, 10))
-        # plt.imshow(prediction_ring)
-        # for i in range(0, len(peaks1), 1):
-        #     plt.plot(peaks1[i], center[0], 'ro')
-        # for i in range(0, len(peaks2), 1):
-        #     plt.plot(peaks2[i], center[0], 'bo')
-        # plt.show()
-        # plt.close()
-        # raise ValueError
 
         ## Catch up the pairs of start points and goal points
         remains = list(np.arange(0, len(peaks1)))

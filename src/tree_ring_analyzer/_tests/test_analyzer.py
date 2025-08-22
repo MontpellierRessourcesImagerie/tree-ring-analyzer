@@ -8,6 +8,7 @@ import numpy as np
 def test_analyzer():
     # Input image.
     input_img = utils.make_checkboard((1000, 1000), 256, 'grayscale')[:, :, None]
+    input_img = input_img.astype(np.uint8)
 
     # Model
     modelRing = Unet(input_size=INPUT_SIZE, filter_num=FILTER_NUM, n_labels=N_LABELS, output_activation='linear').model
@@ -17,7 +18,7 @@ def test_analyzer():
     treeRingSegment.segmentImage(modelRing, modelPith, input_img)
 
     assert treeRingSegment.maskRings.shape == input_img[:, :, 0].shape
-    
+
 
 def test_evaluation():
     # Mask and prediction
