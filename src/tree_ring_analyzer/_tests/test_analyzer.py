@@ -47,3 +47,4 @@ def test_evaluation():
     assert _precision >= 0 and _precision <= 1
     assert _f1 >= 0 and _f1 <= 1
     assert _acc >= 0 and _acc <= 1
+    
