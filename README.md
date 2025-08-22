@@ -2,7 +2,7 @@
 
 [![License MIT](https://img.shields.io/pypi/l/tree-ring-analyzer.svg?color=green)](https://github.com/MontpellierRessourcesImagerie/tree-ring-analyzer/raw/main/LICENSE)
 [![PyPI](https://img.shields.io/pypi/v/tree-ring-analyzer.svg?color=green)](https://pypi.org/project/tree-ring-analyzer)
-[![Python Version](https://img.shields.io/pypi/pyversions/ntree-ring-analyzer.svg?color=green)](https://python.org)
+[![Python Version](https://img.shields.io/pypi/pyversions/tree-ring-analyzer.svg?color=green)](https://python.org)
 [![tests](https://github.com/MontpellierRessourcesImagerie/tree-ring-analyzer/workflows/tests/badge.svg)](https://github.com/MontpellierRessourcesImagerie/tree-ring-analyzer/actions)
 
 Tree Ring Analyzer is an automatic framework that allows the segmentation and detection of tree rings on 2D stained microscopy images.
@@ -28,7 +28,7 @@ Tree Ring Analyzer is an automatic framework that allows the segmentation and de
         - modelRing: Choose loaded Keras model for segmenting tree ring boundaries.
         - modelPith: Choose loaded Keras model for segmenting pith.
         - image: The loaded tree cross-sectional image, should be in the shape of (Y, X, 1).
-        
+
 - For more details, check the [detailed documentation](https://montpellierressourcesimagerie.github.io/napari-tree-rings).
 
 
