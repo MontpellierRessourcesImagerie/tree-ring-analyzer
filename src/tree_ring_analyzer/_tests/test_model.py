@@ -30,7 +30,6 @@ def test_demo_unet():
     model = Unet(input_size=INPUT_SIZE, filter_num=FILTER_NUM, n_labels=N_LABELS, output_activation='sigmoid').model
     
     # Inference result
-    print('hehe', tiles.shape, input_img.shape)
     predictions = model.predict(tiles[:, :, :, None])
     probability_map = tiles_manager.tiles_to_image(predictions[:, :, :, 0])
 

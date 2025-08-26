@@ -32,7 +32,7 @@ dependencies = [
     "tifffile",
     "tensorflow==2.17.0",
     "python-polylabel",
-    "brightest_path_lib",
+    "brightest-path-lib",
     "matplotlib",
     "scikit-learn"
 ]
@@ -54,7 +54,7 @@ testing = [
     "codecov",
     "setuptools",
     "tox-gh-actions",
-    "brightest_path_lib",
+    "brightest-path-lib",
     "matplotlib",
     "scikit-learn"
 ]
