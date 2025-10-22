@@ -30,7 +30,7 @@ dependencies = [
     "scikit-image",
     "opencv-python-headless",
     "tifffile",
-    "tensorflow==2.17.0",
+    "tensorflow>=2.17.0",
     "python-polylabel",
     "brightest-path-lib",
     "matplotlib",
