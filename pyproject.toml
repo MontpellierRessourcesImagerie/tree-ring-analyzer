@@ -30,7 +30,7 @@ dependencies = [
     "scikit-image",
     "opencv-python-headless",
     "tifffile",
-    "tensorflow>=2.17.0",
+    "tensorflow>=2.20",
     "python-polylabel",
     "brightest-path-lib",
     "matplotlib",
@@ -49,7 +49,7 @@ testing = [
     "opencv-python-headless",
     "pint",
     "tifffile",
-    "tensorflow==2.17.0",
+    "tensorflow>=2.20",
     "python-polylabel",
     "codecov",
     "setuptools",
@@ -58,6 +58,7 @@ testing = [
     "matplotlib",
     "scikit-learn"
 ]
+and-cuda = ["tensorflow[and-cuda]>=2.20"]
 
 [project.urls]
 "Bug Tracker" = "https://github.com/MontpellierRessourcesImagerie/tree-ring-analyzer/issues"
@@ -82,7 +83,7 @@ where = ["src"]
 [tool.setuptools.dynamic]
 version = {attr = "tree_ring_analyzer.__init__.__version__"}
 
-[tool.black]
+[tool.black]    
 line-length = 79
 target-version = ['py38', 'py39', 'py310']
 
