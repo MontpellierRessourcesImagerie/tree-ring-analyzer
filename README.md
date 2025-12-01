@@ -17,7 +17,7 @@ Tree Ring Analyzer is an automatic framework that allows the segmentation and de
 
 ## How to use it?
 - The input image should be stained microscopy cross-sectional tree-ring image with the format of TIF file.
-- The two input models, pith prediction and ring segmentation, could be downloaded in the following link: https://github.com/MontpellierRessourcesImagerie/napari-tree-rings/blob/main/model_urls.json
+- The two input models, pith prediction and ring segmentation, can be downloaded via the links in: [model_urls.json](https://raw.githubusercontent.com/MontpellierRessourcesImagerie/napari-tree-rings/refs/heads/main/src/napari_tree_rings/config/model_urls.json)
 - Run `TreeRingSegmentation(resize=5, pithWhole=False, rotate=True, lossType='H0', removeRing=True, thickness=1).segmentImage(modelRing, modelPith, image)`, in which:
     - resize: Controls how much your image is scaled down before post-processing (default is 5).
     - pithWhole: True/False. If True, the pith image will not be cropped (default is False).
