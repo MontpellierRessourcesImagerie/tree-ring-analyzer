@@ -58,7 +58,15 @@ testing = [
     "matplotlib",
     "scikit-learn"
 ]
-and-cuda = ["tensorflow[and-cuda]>=2.17.0"]
+and-cuda = ["numpy",
+    "scikit-image",
+    "opencv-python-headless",
+    "tifffile",
+    "python-polylabel",
+    "brightest-path-lib",
+    "matplotlib",
+    "scikit-learn",
+    "tensorflow[and-cuda]==2.17.0"]
 
 [project.urls]
 "Bug Tracker" = "https://github.com/MontpellierRessourcesImagerie/tree-ring-analyzer/issues"
