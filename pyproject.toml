@@ -3,8 +3,8 @@ name = "tree-ring-analyzer"
 dynamic = ["version"]
 description = "A package that allows to segment tree rings."
 readme = "README.md"
-License-Expression="MIT"
-License-File="LICENSE"
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [
 
   {name = "Thi-Thu-Khiet DANG", email = "dangthithukhiet7988@gmail.com"},
@@ -14,7 +14,6 @@ authors = [
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
