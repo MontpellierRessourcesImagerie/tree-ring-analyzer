@@ -4,7 +4,7 @@ dynamic = ["version"]
 description = "A package that allows to segment tree rings."
 readme = "README.md"
 License-Expression="MIT"
-License-File="LICENSE
+License-File="LICENSE"
 authors = [
 
   {name = "Thi-Thu-Khiet DANG", email = "dangthithukhiet7988@gmail.com"},
