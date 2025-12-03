@@ -73,7 +73,7 @@ and-cuda = ["numpy",
 "User Support" = "https://github.com/MontpellierRessourcesImagerie/tree-ring-analyzer/issues"
 
 [build-system]
-requires = ["setuptools>=42.0.0", "wheel"]
+requires = ["setuptools>=80", "setuptools-scm[simple]>=8", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
